@@ -3,10 +3,50 @@
 
 // Global configuration and state
 let workCodesConfig = null;
-let deliveryDateCounter = 0;
-let bcgDateCounter = 0;
-let serviceDateCounters = {};
+// Date counters removed - now using multi-date picker only
 let allCategories = [];
+
+// Multi-date picker state
+let currentMultiDatePicker = null;
+let multiDatePickerData = {
+    selectedDates: [],
+    currentMonth: new Date(),
+    targetCategory: null,
+    targetService: null
+};
+
+// Store date selections per service/category
+let dateSelections = {}; // Format: {categoryKey_serviceCode: [dates], categoryKey: [dates]}
+
+// Update button text to show selected date count
+function updateDateButtonText(categoryKey, serviceCode = null) {
+    const selectionKey = serviceCode ? `${categoryKey}_${serviceCode}` : categoryKey;
+    const selectedDates = dateSelections[selectionKey] || [];
+    const count = selectedDates.length;
+    
+    let buttonSelector;
+    if (serviceCode) {
+        // Individual service button
+        buttonSelector = `button[onclick="showMultiDatePicker('${categoryKey}', '${serviceCode}')"]`;
+    } else {
+        // Category button
+        buttonSelector = `button[onclick="showMultiDatePicker('${categoryKey}')"]`;
+    }
+    
+    const button = document.querySelector(buttonSelector);
+    if (button) {
+        const baseText = '📅 Select Dates';
+        if (count > 0) {
+            button.textContent = `${baseText} (${count} selected)`;
+            button.style.background = '#28a745'; // Green to indicate dates selected
+            button.style.fontWeight = 'bold';
+        } else {
+            button.textContent = baseText;
+            button.style.background = ''; // Reset to default
+            button.style.fontWeight = '';
+        }
+    }
+}
 
 // Load WorkCodes.json configuration
 async function loadWorkCodesConfiguration() {
@@ -130,15 +170,14 @@ function generateSectionsFromConfig() {
     
     container.innerHTML = html;
     
-    // Set default dates
-    setTimeout(() => {
-        const today = getTodayDate();
-        document.querySelectorAll('input[type="date"]').forEach(input => {
-            if (!input.value) {
-                input.value = today;
-            }
-        });
-    }, 100);
+    // Multi-date picker only - single date options removed for cleaner UX
+    const smartMonth = getSmartDefaultMonth();
+    console.log('✅ Configuration loaded - simplified interface with multi-date picker only:', {
+        smartDefaultMonth: smartMonth.toLocaleDateString('en-US', {year: 'numeric', month: 'long'}),
+        currentDate: new Date().toLocaleDateString(),
+        logic: new Date().getDate() < 15 ? 'Previous month (current day < 15)' : 'Current month (current day >= 15)',
+        interface: 'Multi-date picker for all categories (including TIKAKARAN)'
+    });
 }
 
 // Generate individual category section HTML
@@ -153,18 +192,13 @@ function generateCategorySection(categoryKey, categoryConfig) {
                 <div class="section-title">${icon} ${categoryConfig.name}</div>
     `;
     
-    // Add category-specific controls
-    if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item') {
-        // Multiple dates supported for DELIVERY and BCG
-        html += `<button type="button" class="btn btn-secondary" onclick="add${categoryKey}Date()" style="margin-left: auto;">➕ Add Date</button>`;
-    } else if (categoryConfig.type === 'amount_based') {
-        // Single date for TIKAKARAN
-        html += `
-            <div class="section-date">
-                <label>Date: <input type="date" id="${sectionId}Date" class="date-input"></label>
-            </div>
-        `;
-    }
+                // Add category-specific controls
+            if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item' || categoryConfig.type === 'amount_based') {
+                // Multi-date picker for all category types
+                html += `
+                    <button type="button" class="btn btn-secondary" onclick="showMultiDatePicker('${categoryKey}')" style="margin-left: auto;">📅 Select Dates</button>
+                `;
+            }
     
     html += `
             </div>
@@ -241,7 +275,9 @@ function generateCategorySection(categoryKey, categoryConfig) {
                             <span class="item-amount">₹${code.amount}</span> - 
                             <span class="item-description">${code.description}</span>
                         </div>
-                        <button type="button" class="btn btn-secondary" onclick="addServiceDate('${code.code}')" style="margin-left: auto;">➕ Add Date</button>
+                        <div style="margin-left: auto;">
+                            <button type="button" class="btn btn-secondary" onclick="showMultiDatePicker('${categoryKey}', '${code.code}')">📅 Select Dates</button>
+                        </div>
                     </div>
                     <div class="service-dates" id="dates_${code.code}">
                         <!-- Dynamic date entries will be added here -->
@@ -373,61 +409,7 @@ function highlightText(element, searchTerm) {
     });
 }
 
-// Dynamic date addition functions
-function addDELIVERYDate() {
-    addCategoryDate('delivery', 'deliveryDates', 'delivery_date_', 'delivery_count_', ++deliveryDateCounter);
-}
-
-function addBCGDate() {
-    addCategoryDate('bcg', 'bcgDates', 'bcg_date_', 'bcg_count_', ++bcgDateCounter);
-}
-
-function addCategoryDate(categoryName, containerId, datePrefix, countPrefix, counter) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    
-    const dateId = datePrefix + counter;
-    const countId = countPrefix + counter;
-    
-    const dateEntry = document.createElement('div');
-    dateEntry.className = 'date-entry';
-    dateEntry.innerHTML = `
-        <div class="date-entry-controls">
-            <label>Date: <input type="date" id="${dateId}" class="date-input"></label>
-            <label>Count: <input type="number" id="${countId}" class="count-input" value="1" min="1"></label>
-        </div>
-        <button type="button" class="remove-date-btn" onclick="removeDateEntry(this.parentElement)">✕ Remove</button>
-    `;
-    
-    container.appendChild(dateEntry);
-    document.getElementById(dateId).value = getTodayDate();
-}
-
-// Add service-specific dates
-function addServiceDate(serviceCode) {
-    const container = document.getElementById('dates_' + serviceCode);
-    if (!container) return;
-    
-    if (!serviceDateCounters[serviceCode]) {
-        serviceDateCounters[serviceCode] = 0;
-    }
-    
-    const dateId = 'service_date_' + serviceCode + '_' + (++serviceDateCounters[serviceCode]);
-    const countId = 'service_count_' + serviceCode + '_' + serviceDateCounters[serviceCode];
-    
-    const dateEntry = document.createElement('div');
-    dateEntry.className = 'date-entry';
-    dateEntry.innerHTML = `
-        <div class="date-entry-controls">
-            <label>Date: <input type="date" id="${dateId}" class="date-input"></label>
-            <label>Count: <input type="number" id="${countId}" class="count-input" value="1" min="1"></label>
-        </div>
-        <button type="button" class="remove-date-btn" onclick="removeDateEntry(this.parentElement)">✕ Remove</button>
-    `;
-    
-    container.appendChild(dateEntry);
-    document.getElementById(dateId).value = getTodayDate();
-}
+// Single date functions removed - now everything uses multi-date picker only
 
 // Utility functions
 function toggleSection(sectionName) {
@@ -456,11 +438,469 @@ function toggleServiceDates(serviceCode) {
 }
 
 function removeDateEntry(dateEntry) {
+    // Get the date value and service/category info from data attributes
+    const dateInput = dateEntry.querySelector('input[type="date"]');
+    const dateValue = dateInput ? dateInput.value : null;
+    const categoryKey = dateEntry.dataset.category;
+    const serviceCode = dateEntry.dataset.service;
+    
+    if (dateValue && categoryKey) {
+        // Update persistent storage
+        const selectionKey = serviceCode ? `${categoryKey}_${serviceCode}` : categoryKey;
+        if (dateSelections[selectionKey]) {
+            const index = dateSelections[selectionKey].indexOf(dateValue);
+            if (index > -1) {
+                dateSelections[selectionKey].splice(index, 1);
+                console.log(`🗑️ Removed date ${dateValue} from ${selectionKey}:`, dateSelections[selectionKey]);
+            }
+            
+            // If no dates left, remove the key entirely
+            if (dateSelections[selectionKey].length === 0) {
+                delete dateSelections[selectionKey];
+                console.log(`🗑️ Cleared all dates for ${selectionKey}`);
+            }
+        }
+        
+        // Update button text to reflect the change
+        updateDateButtonText(categoryKey, serviceCode);
+    }
+    
+    // Remove the DOM element
     dateEntry.remove();
 }
 
 function getTodayDate() {
     return new Date().toISOString().split('T')[0];
+}
+
+// Smart default month - show previous month if current date < 15th
+function getSmartDefaultMonth() {
+    const today = new Date();
+    const dayOfMonth = today.getDate();
+    
+    console.log('📅 Smart Default Month Logic:', {
+        today: today.toLocaleDateString(),
+        dayOfMonth: dayOfMonth,
+        condition: `${dayOfMonth} < 15`,
+        willUsePreviousMonth: dayOfMonth < 15
+    });
+    
+    if (dayOfMonth < 15) {
+        // Show previous month
+        const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        console.log('🔙 Calendar will open to PREVIOUS month:', {
+            month: prevMonth.toLocaleDateString('en-US', {year: 'numeric', month: 'long'}),
+            reason: `Current day ${dayOfMonth} < 15`
+        });
+        return prevMonth;
+    } else {
+        // Show current month
+        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        console.log('📍 Calendar will open to CURRENT month:', {
+            month: currentMonth.toLocaleDateString('en-US', {year: 'numeric', month: 'long'}),
+            reason: `Current day ${dayOfMonth} >= 15`
+        });
+        return currentMonth;
+    }
+}
+
+// Smart default date - show date from previous month if current date < 15th
+function getSmartDefaultDate() {
+    const today = new Date();
+    const dayOfMonth = today.getDate();
+    
+    console.log('🧠 Smart date calculation:', {
+        today: today.toDateString(),
+        dayOfMonth: dayOfMonth,
+        shouldUsePrevMonth: dayOfMonth < 15
+    });
+    
+    if (dayOfMonth < 15) {
+        // Show date from previous month (same day)
+        const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, dayOfMonth);
+        const smartDate = prevMonth.toISOString().split('T')[0];
+        console.log('🧠 Using previous month:', {
+            prevMonth: prevMonth.toDateString(),
+            smartDate: smartDate
+        });
+        return smartDate;
+    } else {
+        // Show today's date
+        const todayDate = today.toISOString().split('T')[0];
+        console.log('🧠 Using current month:', {
+            today: today.toDateString(),
+            todayDate: todayDate
+        });
+        return todayDate;
+    }
+}
+
+// Multi-date picker functionality
+function showMultiDatePicker(categoryKey, serviceCode = null) {
+    // 1. FIRST: Check if any checkboxes are selected
+    const selectedServices = getSelectedServicesForCategory(categoryKey, serviceCode);
+    
+    if (selectedServices.length === 0) {
+        showValidationError(categoryKey, serviceCode);
+        return;
+    }
+    
+    // 2. Load existing date selections for this service/category
+    const selectionKey = serviceCode ? `${categoryKey}_${serviceCode}` : categoryKey;
+    const existingDates = dateSelections[selectionKey] || [];
+    
+    // 3. Initialize picker data with existing selections
+    multiDatePickerData.selectedDates = [...existingDates]; // Copy existing dates
+    multiDatePickerData.currentMonth = getSmartDefaultMonth();
+    multiDatePickerData.targetCategory = categoryKey;
+    multiDatePickerData.targetService = serviceCode;
+    
+    console.log(`📅 Opening date picker for ${selectionKey}:`, {
+        selectedServices: selectedServices.map(s => s.code || s),
+        existingDates: existingDates,
+        selectionKey: selectionKey
+    });
+    
+    // 4. Create multi-date picker HTML
+    const pickerHTML = createMultiDatePickerHTML();
+    
+    // 5. Show picker in a modal-like container
+    showMultiDatePickerModal(pickerHTML);
+}
+
+// Helper function to get selected services for a category
+function getSelectedServicesForCategory(categoryKey, serviceCode) {
+    const selectedServices = [];
+    const sectionId = categoryKey.toLowerCase();
+    
+    if (serviceCode) {
+        // Individual service - check if this specific service is selected
+        const checkbox = document.getElementById(`${sectionId}_${serviceCode}`);
+        if (checkbox && checkbox.checked) {
+            selectedServices.push({code: serviceCode, selected: true});
+        }
+    } else {
+        // Category-wide - check if category is selected and if it has services, check those too
+        const categoryToggle = document.getElementById(`${sectionId}Toggle`);
+        if (!categoryToggle || !categoryToggle.checked) {
+            return []; // Category not selected
+        }
+        
+        // For categories with individual services, check which services are selected
+        if (workCodesConfig && workCodesConfig.categories[categoryKey]) {
+            const categoryConfig = workCodesConfig.categories[categoryKey];
+            
+            if (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection') {
+                // Check individual service checkboxes
+                categoryConfig.codes.forEach(code => {
+                    const checkbox = document.getElementById(`${sectionId}_${code.code}`);
+                    if (checkbox && checkbox.checked) {
+                        selectedServices.push({code: code.code, selected: true});
+                    }
+                });
+            } else {
+                // For fixed_bundle and single_item, the category selection is enough
+                selectedServices.push({category: categoryKey, selected: true});
+            }
+        }
+    }
+    
+    return selectedServices;
+}
+
+// Show validation error when no checkboxes are selected
+function showValidationError(categoryKey, serviceCode) {
+    const categoryName = workCodesConfig?.categories[categoryKey]?.name || categoryKey;
+    
+    let message;
+    if (serviceCode) {
+        message = `Please select the checkbox for service "${serviceCode}" before choosing dates.`;
+    } else {
+        const categoryConfig = workCodesConfig?.categories[categoryKey];
+        if (categoryConfig?.type === 'amount_based' || categoryConfig?.type === 'individual_selection') {
+            message = `Please select at least one service from "${categoryName}" before choosing dates.`;
+        } else {
+            message = `Please check the "${categoryName}" checkbox before selecting dates.`;
+        }
+    }
+    
+    // Show user-friendly alert
+    alert(`⚠️ Selection Required\n\n${message}`);
+    
+    console.warn('📅 Date picker blocked - no services selected:', {
+        categoryKey,
+        serviceCode,
+        message
+    });
+}
+
+function createMultiDatePickerHTML() {
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    
+    const currentMonth = multiDatePickerData.currentMonth;
+    const monthYear = `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+    
+    const selectionKey = multiDatePickerData.targetService 
+        ? `${multiDatePickerData.targetCategory}_${multiDatePickerData.targetService}` 
+        : multiDatePickerData.targetCategory;
+        
+    const targetName = multiDatePickerData.targetService 
+        ? `${multiDatePickerData.targetService}` 
+        : workCodesConfig?.categories[multiDatePickerData.targetCategory]?.name || multiDatePickerData.targetCategory;
+        
+    const existingCount = multiDatePickerData.selectedDates.length;
+    const existingText = existingCount > 0 ? ` (${existingCount} already selected)` : '';
+    
+    let html = `
+        <div class="multi-date-picker">
+            <h4>📅 Select Dates for ${targetName}${existingText}</h4>
+            
+            <div class="calendar-header">
+                <button type="button" class="calendar-nav" onclick="changeMonth(-1)">‹ Previous</button>
+                <span style="font-weight: bold; font-size: 1.1em;">${monthYear}</span>
+                <button type="button" class="calendar-nav" onclick="changeMonth(1)">Next ›</button>
+            </div>
+            
+            <div class="calendar-grid">
+    `;
+    
+    // Day headers
+    dayNames.forEach(day => {
+        html += `<div class="calendar-day-header">${day}</div>`;
+    });
+    
+    // Generate calendar days
+    const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    
+    const today = new Date();
+    
+    for (let i = 0; i < 42; i++) { // 6 weeks max
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        
+        const dateStr = date.toISOString().split('T')[0];
+        const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+        const isToday = date.toDateString() === today.toDateString();
+        const isSelected = multiDatePickerData.selectedDates.includes(dateStr);
+        
+        let classes = ['calendar-day'];
+        if (!isCurrentMonth) classes.push('other-month');
+        if (isToday) classes.push('today');
+        if (isSelected) classes.push('selected');
+        
+        html += `<div class="${classes.join(' ')}" onclick="toggleDateSelection('${dateStr}')" data-date="${dateStr}">${date.getDate()}</div>`;
+        
+        if ((i + 1) % 7 === 0 && date > lastDay) break; // Stop if we've passed the month
+    }
+    
+    html += `
+            </div>
+            
+            <div class="selected-dates-preview">
+                <strong>Selected Dates (${multiDatePickerData.selectedDates.length}):</strong>
+                <div id="selectedDatesContainer">
+                    ${generateSelectedDateTags()}
+                </div>
+            </div>
+            
+            <div class="multi-date-actions">
+                <button type="button" class="btn btn-secondary" onclick="clearAllSelectedDates()">Clear All</button>
+                <button type="button" class="btn btn-secondary" onclick="closeMultiDatePicker()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="applySelectedDates()">Apply Selected Dates</button>
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+function showMultiDatePickerModal(html) {
+    // Create or update modal container
+    let modal = document.getElementById('multiDatePickerModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'multiDatePickerModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    modal.innerHTML = `<div style="max-width: 600px; max-height: 90vh; overflow-y: auto;">${html}</div>`;
+    modal.style.display = 'flex';
+}
+
+function toggleDateSelection(dateStr) {
+    const index = multiDatePickerData.selectedDates.indexOf(dateStr);
+    if (index > -1) {
+        multiDatePickerData.selectedDates.splice(index, 1);
+    } else {
+        multiDatePickerData.selectedDates.push(dateStr);
+        multiDatePickerData.selectedDates.sort();
+    }
+    
+    // Update visual selection
+    const dayElement = document.querySelector(`[data-date="${dateStr}"]`);
+    if (dayElement) {
+        dayElement.classList.toggle('selected');
+    }
+    
+    // Update selected dates preview
+    const container = document.getElementById('selectedDatesContainer');
+    if (container) {
+        container.innerHTML = generateSelectedDateTags();
+    }
+}
+
+function generateSelectedDateTags() {
+    return multiDatePickerData.selectedDates.map(dateStr => {
+        const date = new Date(dateStr);
+        const formatted = date.toLocaleDateString();
+        return `<span class="selected-date-tag">${formatted} <span class="remove-date" onclick="removeSelectedDate('${dateStr}')">×</span></span>`;
+    }).join('');
+}
+
+function removeSelectedDate(dateStr) {
+    toggleDateSelection(dateStr);
+}
+
+function changeMonth(direction) {
+    multiDatePickerData.currentMonth.setMonth(multiDatePickerData.currentMonth.getMonth() + direction);
+    
+    // Regenerate calendar
+    const pickerHTML = createMultiDatePickerHTML();
+    showMultiDatePickerModal(pickerHTML);
+}
+
+function clearAllSelectedDates() {
+    multiDatePickerData.selectedDates = [];
+    
+    // Update visual
+    document.querySelectorAll('.calendar-day.selected').forEach(el => {
+        el.classList.remove('selected');
+    });
+    
+    const container = document.getElementById('selectedDatesContainer');
+    if (container) {
+        container.innerHTML = generateSelectedDateTags();
+    }
+}
+
+function closeMultiDatePicker() {
+    const modal = document.getElementById('multiDatePickerModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function applySelectedDates() {
+    if (multiDatePickerData.selectedDates.length === 0) {
+        alert('⚠️ No dates selected\n\nPlease select at least one date, or click Cancel to close without changes.');
+        return;
+    }
+    
+    const categoryKey = multiDatePickerData.targetCategory;
+    const serviceCode = multiDatePickerData.targetService;
+    
+    // Store the date selections persistently
+    const selectionKey = serviceCode ? `${categoryKey}_${serviceCode}` : categoryKey;
+    dateSelections[selectionKey] = [...multiDatePickerData.selectedDates]; // Store a copy
+    
+    console.log(`💾 Stored date selections for ${selectionKey}:`, dateSelections[selectionKey]);
+    
+    if (serviceCode) {
+        // Apply to specific service
+        applyDatesToService(serviceCode);
+    } else {
+        // Apply to category (DELIVERY, BCG, TIKAKARAN)
+        applyDatesToCategory(categoryKey);
+    }
+    
+    // Update button text to show selection count
+    updateDateButtonText(categoryKey, serviceCode);
+    
+    closeMultiDatePicker();
+}
+
+function applyDatesToCategory(categoryKey) {
+    const sectionId = categoryKey.toLowerCase();
+    const container = document.getElementById(sectionId + 'Dates');
+    
+    if (!container) return;
+    
+    // Clear existing dates
+    container.innerHTML = '';
+    
+    // Add each selected date
+    multiDatePickerData.selectedDates.forEach((dateStr, index) => {
+        const dateId = `${sectionId}_date_${Date.now()}_${index}`;
+        const countId = `${sectionId}_count_${Date.now()}_${index}`;
+        
+        const dateEntry = document.createElement('div');
+        dateEntry.className = 'date-entry';
+        dateEntry.dataset.category = categoryKey; // Store category for removal tracking
+        dateEntry.innerHTML = `
+            <div class="date-entry-controls">
+                <label>Date: <input type="date" id="${dateId}" class="date-input" value="${dateStr}"></label>
+                <label>Count: <input type="number" id="${countId}" class="count-input" value="1" min="1"></label>
+            </div>
+            <button type="button" class="remove-date-btn" onclick="removeDateEntry(this.parentElement)">✕ Remove</button>
+        `;
+        
+        container.appendChild(dateEntry);
+    });
+    
+    console.log(`✅ Applied ${multiDatePickerData.selectedDates.length} dates to ${categoryKey}`);
+}
+
+function applyDatesToService(serviceCode) {
+    const container = document.getElementById('dates_' + serviceCode);
+    
+    if (!container) return;
+    
+    // Clear existing dates
+    container.innerHTML = '';
+    
+    // Initialize counter if needed
+    if (!serviceDateCounters[serviceCode]) {
+        serviceDateCounters[serviceCode] = 0;
+    }
+    
+    // Add each selected date
+    multiDatePickerData.selectedDates.forEach((dateStr, index) => {
+        const dateId = `service_date_${serviceCode}_${Date.now()}_${index}`;
+        const countId = `service_count_${serviceCode}_${Date.now()}_${index}`;
+        
+        const dateEntry = document.createElement('div');
+        dateEntry.className = 'date-entry';
+        dateEntry.dataset.category = multiDatePickerData.targetCategory; // Store category for removal tracking
+        dateEntry.dataset.service = serviceCode; // Store service for removal tracking
+        dateEntry.innerHTML = `
+            <div class="date-entry-controls">
+                <label>Date: <input type="date" id="${dateId}" class="date-input" value="${dateStr}"></label>
+                <label>Count: <input type="number" id="${countId}" class="count-input" value="1" min="1"></label>
+            </div>
+            <button type="button" class="remove-date-btn" onclick="removeDateEntry(this.parentElement)">✕ Remove</button>
+        `;
+        
+        container.appendChild(dateEntry);
+    });
+    
+    console.log(`✅ Applied ${multiDatePickerData.selectedDates.length} dates to service ${serviceCode}`);
 }
 
 // Generate JSON (updated for dynamic system)
@@ -480,6 +920,9 @@ function generateJSON() {
         workData: []
     };
     
+    let emptyDateWarnings = [];
+    let skippedEntries = 0;
+    
     // Process each category dynamically
     Object.entries(workCodesConfig.categories).forEach(([categoryKey, categoryConfig]) => {
         const sectionId = categoryKey.toLowerCase();
@@ -487,7 +930,7 @@ function generateJSON() {
         
         if (toggle && toggle.checked) {
             if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item') {
-                // Multiple dates approach
+                // Multiple dates approach for DELIVERY and BCG
                 const datesContainer = document.getElementById(sectionId + 'Dates');
                 if (datesContainer) {
                     const dateEntries = datesContainer.querySelectorAll('.date-entry');
@@ -502,26 +945,50 @@ function generateJSON() {
                                 count: parseInt(countInput.value) || 1,
                                 type: categoryConfig.type
                             });
+                        } else if (dateInput && !dateInput.value) {
+                            emptyDateWarnings.push(`${categoryKey} service has empty date`);
+                            skippedEntries++;
                         }
                     });
                 }
             } else if (categoryConfig.type === 'amount_based') {
-                // Single date approach
-                const dateInput = document.getElementById(sectionId + 'Date');
-                if (dateInput && dateInput.value) {
-                    categoryConfig.codes.forEach(code => {
-                        const checkbox = document.getElementById(sectionId + '_' + code.code);
-                        if (checkbox && checkbox.checked) {
-                            const countInput = document.getElementById('count_' + code.code);
-                            data.workData.push({
-                                category: categoryKey,
-                                code: code.code,
-                                date: dateInput.value,
-                                count: parseInt(countInput.value) || 1,
-                                type: "individual"
+                // Multi-date approach for TIKAKARAN (amount-based services)
+                const datesContainer = document.getElementById(sectionId + 'Dates');
+                if (datesContainer) {
+                    const dateEntries = datesContainer.querySelectorAll('.date-entry');
+                    dateEntries.forEach(entry => {
+                        const dateInput = entry.querySelector('input[type="date"]');
+                        if (dateInput && dateInput.value) {
+                            // Process each selected service for this date
+                            categoryConfig.codes.forEach(code => {
+                                const checkbox = document.getElementById(sectionId + '_' + code.code);
+                                if (checkbox && checkbox.checked) {
+                                    const countInput = document.getElementById('count_' + code.code);
+                                    data.workData.push({
+                                        category: categoryKey,
+                                        code: code.code,
+                                        date: dateInput.value,
+                                        count: parseInt(countInput.value) || 1,
+                                        type: "individual"
+                                    });
+                                }
                             });
+                        } else if (dateInput && !dateInput.value) {
+                            emptyDateWarnings.push(`${categoryKey} service has empty date`);
+                            skippedEntries++;
                         }
                     });
+                } else {
+                    // Check if any services are selected but no dates provided
+                    const hasSelectedServices = categoryConfig.codes.some(code => {
+                        const checkbox = document.getElementById(sectionId + '_' + code.code);
+                        return checkbox && checkbox.checked;
+                    });
+                    
+                    if (hasSelectedServices) {
+                        emptyDateWarnings.push(`${categoryKey} has selected services but no dates specified`);
+                        skippedEntries++;
+                    }
                 }
             } else if (categoryConfig.type === 'individual_selection') {
                 // Individual service dates
@@ -531,6 +998,8 @@ function generateJSON() {
                         const serviceDates = document.getElementById('dates_' + code.code);
                         if (serviceDates) {
                             const dateEntries = serviceDates.querySelectorAll('.date-entry');
+                            let hasValidDates = false;
+                            
                             dateEntries.forEach(entry => {
                                 const dateInput = entry.querySelector('input[type="date"]');
                                 const countInput = entry.querySelector('input[type="number"]');
@@ -543,14 +1012,39 @@ function generateJSON() {
                                         count: parseInt(countInput.value) || 1,
                                         type: "individual"
                                     });
+                                    hasValidDates = true;
+                                } else if (dateInput && !dateInput.value) {
+                                    emptyDateWarnings.push(`${code.code} service has empty date`);
+                                    skippedEntries++;
                                 }
                             });
+                            
+                            // If service is selected but no date entries exist
+                            if (!hasValidDates && dateEntries.length === 0) {
+                                emptyDateWarnings.push(`${code.code} service is selected but no dates added`);
+                                skippedEntries++;
+                            }
                         }
                     }
                 });
             }
         }
     });
+    
+    // Show warnings if there are empty dates
+    if (emptyDateWarnings.length > 0) {
+        const warningMessage = `⚠️ WARNING: Found ${skippedEntries} entries with missing dates:\n\n` +
+            emptyDateWarnings.map(warning => `• ${warning}`).join('\n') + 
+            `\n\nThese entries were skipped. Please fill in the dates and try again.\n\n` +
+            `Generated ${data.workData.length} valid entries.`;
+        
+        alert(warningMessage);
+        console.warn('📅 Empty date validation:', {
+            warnings: emptyDateWarnings,
+            skippedEntries: skippedEntries,
+            validEntries: data.workData.length
+        });
+    }
     
     displayResults(data);
 }
@@ -655,5 +1149,17 @@ function reloadConfiguration() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Initializing dynamic work data entry system...');
+    
+    // Debug smart date functionality
+    const smartDate = getSmartDefaultDate();
+    const smartMonth = getSmartDefaultMonth();
+    console.log('🔍 Debug info:', {
+        today: new Date().toDateString(),
+        smartDate: smartDate,
+        smartMonth: smartMonth.toDateString(),
+        dayOfMonth: new Date().getDate()
+    });
+    
     loadWorkCodesConfiguration();
 });
+ 
