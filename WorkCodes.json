@@ -1,0 +1,177 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "lastUpdated": "2025-01-01",
+    "description": "Work code mappings for healthcare automation system"
+  },
+  "categories": {
+    "DELIVERY": {
+      "name": "Delivery Services",
+      "description": "Complete delivery process including all standard checks",
+      "type": "fixed_bundle",
+      "codes": [
+        {
+          "code": "I1.4",
+          "amount": 300,
+          "description": "BCG/Delivery JAANCH",
+          "required": true
+        },
+        {
+          "code": "C1.2", 
+          "amount": 100,
+          "description": "General Check",
+          "required": true
+        },
+        {
+          "code": "C1.4",
+          "amount": 100, 
+          "description": "IFA Supplementation [1-3]",
+          "required": true
+        },
+        {
+          "code": "C1.5",
+          "amount": 100,
+          "description": "TT Vaccination [1-2]", 
+          "required": true
+        }
+      ]
+    },
+    "BCG": {
+      "name": "BCG Only",
+      "description": "BCG vaccination only (subset of delivery)",
+      "type": "single_item",
+      "codes": [
+        {
+          "code": "I1.4",
+          "amount": 300,
+          "description": "BCG/Delivery JAANCH",
+          "required": true
+        }
+      ]
+    },
+    "TIKAKARAN": {
+      "name": "Immunization Services", 
+      "description": "Various immunization services based on amount",
+      "type": "amount_based",
+      "codes": [
+        {
+          "code": "C3.6",
+          "amount": 50,
+          "description": "DPT-2 Booster [5-6 years]",
+          "ageGroup": "5-6 years"
+        },
+        {
+          "code": "C3.5", 
+          "amount": 75,
+          "description": "DPT, OPV [2 years]",
+          "ageGroup": "2 years"
+        },
+        {
+          "code": "C3.4",
+          "amount": 100, 
+          "description": "BCG-1, PENTA-3, OPV-1 [<1 year]",
+          "ageGroup": "<1 year"
+        },
+        {
+          "code": "C4.1",
+          "amount": 250,
+          "description": "HBNC (Home Based Newborn Care)",
+          "ageGroup": "newborn"
+        }
+      ]
+    },
+    "EMERGENCY": {
+      "name": "Emergency Services",
+      "description": "Emergency and urgent care services",
+      "type": "individual_selection", 
+      "codes": [
+        {
+          "code": "E1.1",
+          "amount": 1500,
+          "description": "Emergency Response",
+          "keywords": ["emergency", "urgent", "crisis"]
+        },
+        {
+          "code": "E1.2",
+          "amount": 2000,
+          "description": "Ambulance Service",
+          "keywords": ["ambulance", "transport", "emergency"]
+        }
+      ]
+    },
+    "OTHERS": {
+      "name": "Other Services",
+      "description": "Miscellaneous healthcare and administrative services", 
+      "type": "individual_selection",
+      "codes": [
+        {
+          "code": "I2.1",
+          "amount": 300,
+          "description": "Operation",
+          "keywords": ["operationk", "surgeryk"]
+        },
+        {
+          "code": "I9.9",
+          "amount": 3000,
+          "description": "OperationKsv",
+          "keywords": ["operation", "surgery"]
+        },
+        {
+          "code": "I5.3", 
+          "amount": 1150,
+          "description": "SAARI Program",
+          "keywords": ["saari"]
+        },
+        {
+          "code": "I5.4",
+          "amount": 150,
+          "description": "Mobile Recharge CUG Sim", 
+          "keywords": ["mobile", "recharge", "sim"]
+        },
+        {
+          "code": "I3.2",
+          "amount": 100,
+          "description": "POLIO Pulse Polio",
+          "keywords": ["polio", "pulse"]
+        },
+        {
+          "code": "I1.1",
+          "amount": 100,
+          "description": "ANC (Antenatal Care) - Rs. 100 per month",
+          "keywords": ["anc", "antenatal"]
+        },
+        {
+          "code": "I2.5", 
+          "amount": 150,
+          "description": "Copper-T",
+          "keywords": ["couper", "copper-t"]
+        },
+        {
+          "code": "I2.6",
+          "amount": 100, 
+          "description": "ANTRA",
+          "keywords": ["antra"]
+        },
+        {
+          "code": "I8.17",
+          "amount": 1000,
+          "description": "TB Treatment",
+          "keywords": ["tb", "tuberculosis"]
+        },
+        {
+          "code": "I9.1",
+          "amount": 250,
+          "description": "COVID-19 Vaccination",
+          "keywords": ["covid", "vaccine", "corona"]
+        },
+        {
+          "code": "I9.2", 
+          "amount": 150,
+          "description": "Health Checkup Camp",
+          "keywords": ["checkup", "camp", "screening"]
+        }
+      ]
+    }
+  }
+}
+
