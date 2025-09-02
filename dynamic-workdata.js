@@ -18,6 +18,82 @@ let multiDatePickerData = {
 // Store date selections per service/category
 let dateSelections = {}; // Format: {categoryKey_serviceCode: [dates], categoryKey: [dates]}
 
+// Store count values per service/date combination
+let dateCountValues = {}; // Format: {categoryKey_serviceCode: {date: count}, categoryKey: {date: count}}
+
+// Helper functions for count value management
+function storeExistingCountValues(container, selectionKey) {
+    if (!container) return;
+    
+    // Initialize storage for this selection key if it doesn't exist
+    if (!dateCountValues[selectionKey]) {
+        dateCountValues[selectionKey] = {};
+    }
+    
+    // Find existing date entries and store their count values
+    const dateEntries = container.querySelectorAll('.date-entry');
+    dateEntries.forEach(entry => {
+        const dateInput = entry.querySelector('input[type="date"]');
+        const countInput = entry.querySelector('input[type="number"]');
+        
+        if (dateInput && countInput && dateInput.value) {
+            const dateValue = dateInput.value;
+            const countValue = parseInt(countInput.value) || 1;
+            dateCountValues[selectionKey][dateValue] = countValue;
+            
+            console.log(`💾 Stored count for ${selectionKey}[${dateValue}] = ${countValue}`);
+        }
+    });
+}
+
+function getStoredCountValue(selectionKey, dateStr) {
+    if (!dateCountValues[selectionKey] || !dateCountValues[selectionKey][dateStr]) {
+        return null;
+    }
+    return dateCountValues[selectionKey][dateStr];
+}
+
+function updateStoredCountValue(selectionKey, dateStr, count) {
+    if (!dateCountValues[selectionKey]) {
+        dateCountValues[selectionKey] = {};
+    }
+    
+    const countValue = parseInt(count) || 1;
+    dateCountValues[selectionKey][dateStr] = countValue;
+    
+    console.log(`📝 Updated count for ${selectionKey}[${dateStr}] = ${countValue}`);
+}
+
+// Helper function to generate service and register dates based on business logic
+function generateServiceAndRegisterDates(selectedDate) {
+    const smartDefaultMonth = getSmartDefaultMonth();
+    const selectedDateObj = new Date(selectedDate);
+    const defaultMonthYear = `${smartDefaultMonth.getFullYear()}-${String(smartDefaultMonth.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Check if selected date is before the smart default month
+    const selectedMonthYear = `${selectedDateObj.getFullYear()}-${String(selectedDateObj.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (selectedMonthYear < defaultMonthYear) {
+        // Date is before default month - use special logic
+        const dayOfMonth = String(selectedDateObj.getDate()).padStart(2, '0');
+        const serviceDate = `${defaultMonthYear}-${dayOfMonth}`; // Same day in default month
+        const registerDate = selectedDate; // Keep original date
+        
+        console.log(`📅 Previous month date detected:`, {
+            selectedDate: selectedDate,
+            defaultMonth: defaultMonthYear,
+            serviceDate: serviceDate,
+            registerDate: registerDate,
+            logic: 'Service=default month, Register=selected month'
+        });
+        
+        return { serviceDate, registerDate };
+    } else {
+        // Normal case - both dates are the same
+        return { serviceDate: selectedDate, registerDate: selectedDate };
+    }
+}
+
 // Update button text to show selected date count
 function updateDateButtonText(categoryKey, serviceCode = null) {
     const selectionKey = serviceCode ? `${categoryKey}_${serviceCode}` : categoryKey;
@@ -187,18 +263,26 @@ function generateCategorySection(categoryKey, categoryConfig) {
     
     let html = `
         <div id="${sectionId}Section" class="section" data-category="${categoryKey}">
-            <div class="section-header">
-                <input type="checkbox" id="${sectionId}Toggle" class="section-toggle" onchange="toggleSection('${sectionId}')">
-                <div class="section-title">${icon} ${categoryConfig.name}</div>
-    `;
+            <div class="section-header">`;
     
-                // Add category-specific controls
-            if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item' || categoryConfig.type === 'amount_based') {
-                // Multi-date picker for all category types
-                html += `
-                    <button type="button" class="btn btn-secondary" onclick="showMultiDatePicker('${categoryKey}')" style="margin-left: auto;">📅 Select Dates</button>
+    // For categories that need individual selection, make title clickable instead of checkbox
+    if (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection') {
+        html += `
+                <div class="section-title clickable-title" onclick="toggleSection('${sectionId}')" style="cursor: pointer;">${icon} ${categoryConfig.name}</div>`;
+    } else {
+        // Keep checkbox for fixed_bundle and single_item categories
+        html += `
+                <input type="checkbox" id="${sectionId}Toggle" class="section-toggle" onchange="toggleSection('${sectionId}')">
+                <div class="section-title">${icon} ${categoryConfig.name}</div>`;
+    }
+    
+    // Add category-specific controls
+    if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item' || categoryConfig.type === 'amount_based') {
+        // Multi-date picker for all category types
+        html += `
+                    <button type="button" class="btn btn-secondary date-select-btn" onclick="showMultiDatePicker('${categoryKey}')" style="margin-left: auto;">📅 Select Dates</button>
                 `;
-            }
+    }
     
     html += `
             </div>
@@ -252,31 +336,46 @@ function generateCategorySection(categoryKey, categoryConfig) {
         html += `<p><strong>Select ${categoryConfig.name.toLowerCase()} and specify counts:</strong></p>`;
         categoryConfig.codes.forEach(code => {
             html += `
-                <div class="item-row" data-search="${code.code.toLowerCase()} ${code.description.toLowerCase()} ${code.amount}">
-                    <input type="checkbox" class="item-checkbox" id="${sectionId}_${code.code}">
+                <div class="item-row clickable-item" data-search="${code.code.toLowerCase()} ${code.description.toLowerCase()} ${code.amount}" onclick="toggleItemSelection('${sectionId}_${code.code}')">
+                    <input type="checkbox" class="item-checkbox" id="${sectionId}_${code.code}" onchange="handleCheckboxChange(this)">
                     <div class="item-info">
                         <span class="item-code">${code.code}</span> - 
                         <span class="item-amount">₹${code.amount}</span> - 
                         <span class="item-description">${code.description}</span>
                     </div>
-                    <label>Count: <input type="number" class="count-input" id="count_${code.code}" value="1" min="1"></label>
+                    <div class="count-controls">
+                        <label>Count:</label>
+                        <div class="count-input-group">
+                            <button type="button" class="count-btn count-minus" onclick="adjustCount('count_${code.code}', -1); event.stopPropagation();">-</button>
+                            <input type="number" class="count-input" id="count_${code.code}" value="1" min="1" readonly>
+                            <button type="button" class="count-btn count-plus" onclick="adjustCount('count_${code.code}', 1); event.stopPropagation();">+</button>
+                        </div>
+                    </div>
                 </div>
             `;
         });
+        html += `
+            <div class="multiple-dates-container">
+                <h4>📅 ${categoryConfig.name} Dates:</h4>
+                <div id="${sectionId}Dates">
+                    <!-- Dynamic date entries will be added here -->
+                </div>
+            </div>
+        `;
     } else if (categoryConfig.type === 'individual_selection') {
         html += `<p><strong>Select ${categoryConfig.name.toLowerCase()} (each service can have multiple dates):</strong></p>`;
         categoryConfig.codes.forEach(code => {
             html += `
                 <div class="service-item" id="service_${code.code}" data-search="${code.code.toLowerCase()} ${code.description.toLowerCase()} ${code.amount}">
-                    <div class="item-row">
-                        <input type="checkbox" class="item-checkbox" id="${sectionId}_${code.code}" onchange="toggleServiceDates('${code.code}')">
+                    <div class="item-row clickable-item" onclick="toggleItemSelection('${sectionId}_${code.code}')">
+                        <input type="checkbox" class="item-checkbox" id="${sectionId}_${code.code}" onchange="handleCheckboxChange(this, '${code.code}')">
                         <div class="item-info">
                             <span class="item-code">${code.code}</span> - 
                             <span class="item-amount">₹${code.amount}</span> - 
                             <span class="item-description">${code.description}</span>
                         </div>
-                        <div style="margin-left: auto;">
-                            <button type="button" class="btn btn-secondary" onclick="showMultiDatePicker('${categoryKey}', '${code.code}')">📅 Select Dates</button>
+                        <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                            <button type="button" class="btn btn-secondary date-select-btn" onclick="showMultiDatePicker('${categoryKey}', '${code.code}'); event.stopPropagation();">📅 Select Dates</button>
                         </div>
                     </div>
                     <div class="service-dates" id="dates_${code.code}">
@@ -416,6 +515,17 @@ function toggleSection(sectionName) {
     const section = document.getElementById(sectionName + 'Section');
     const toggle = document.getElementById(sectionName + 'Toggle');
     
+    // Handle clickable titles (for categories without checkboxes)
+    if (!toggle) {
+        if (section.classList.contains('active')) {
+            section.classList.remove('active');
+        } else {
+            section.classList.add('active');
+        }
+        return;
+    }
+    
+    // Handle checkbox-based toggles
     if (toggle && toggle.checked) {
         section.classList.add('active');
     } else if (section) {
@@ -447,6 +557,8 @@ function removeDateEntry(dateEntry) {
     if (dateValue && categoryKey) {
         // Update persistent storage
         const selectionKey = serviceCode ? `${categoryKey}_${serviceCode}` : categoryKey;
+        
+        // Remove from date selections
         if (dateSelections[selectionKey]) {
             const index = dateSelections[selectionKey].indexOf(dateValue);
             if (index > -1) {
@@ -458,6 +570,18 @@ function removeDateEntry(dateEntry) {
             if (dateSelections[selectionKey].length === 0) {
                 delete dateSelections[selectionKey];
                 console.log(`🗑️ Cleared all dates for ${selectionKey}`);
+            }
+        }
+        
+        // Remove from count values storage
+        if (dateCountValues[selectionKey] && dateCountValues[selectionKey][dateValue]) {
+            delete dateCountValues[selectionKey][dateValue];
+            console.log(`🗑️ Removed count value for ${selectionKey}[${dateValue}]`);
+            
+            // If no count values left, remove the key entirely
+            if (Object.keys(dateCountValues[selectionKey]).length === 0) {
+                delete dateCountValues[selectionKey];
+                console.log(`🗑️ Cleared all count values for ${selectionKey}`);
             }
         }
         
@@ -580,18 +704,12 @@ function getSelectedServicesForCategory(categoryKey, serviceCode) {
             selectedServices.push({code: serviceCode, selected: true});
         }
     } else {
-        // Category-wide - check if category is selected and if it has services, check those too
-        const categoryToggle = document.getElementById(`${sectionId}Toggle`);
-        if (!categoryToggle || !categoryToggle.checked) {
-            return []; // Category not selected
-        }
-        
-        // For categories with individual services, check which services are selected
+        // Category-wide - handle different category types
         if (workCodesConfig && workCodesConfig.categories[categoryKey]) {
             const categoryConfig = workCodesConfig.categories[categoryKey];
             
             if (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection') {
-                // Check individual service checkboxes
+                // For categories without toggles, check if any individual services are selected
                 categoryConfig.codes.forEach(code => {
                     const checkbox = document.getElementById(`${sectionId}_${code.code}`);
                     if (checkbox && checkbox.checked) {
@@ -599,8 +717,11 @@ function getSelectedServicesForCategory(categoryKey, serviceCode) {
                     }
                 });
             } else {
-                // For fixed_bundle and single_item, the category selection is enough
-                selectedServices.push({category: categoryKey, selected: true});
+                // For fixed_bundle and single_item categories, check category toggle
+                const categoryToggle = document.getElementById(`${sectionId}Toggle`);
+                if (categoryToggle && categoryToggle.checked) {
+                    selectedServices.push({category: categoryKey, selected: true});
+                }
             }
         }
     }
@@ -842,6 +963,10 @@ function applyDatesToCategory(categoryKey) {
     
     if (!container) return;
     
+    // Store count values from existing entries before clearing
+    const selectionKey = categoryKey;
+    storeExistingCountValues(container, selectionKey);
+    
     // Clear existing dates
     container.innerHTML = '';
     
@@ -850,40 +975,59 @@ function applyDatesToCategory(categoryKey) {
         const dateId = `${sectionId}_date_${Date.now()}_${index}`;
         const countId = `${sectionId}_count_${Date.now()}_${index}`;
         
+        // Get existing count value or default to 1
+        const existingCount = getStoredCountValue(selectionKey, dateStr) || 1;
+        
         const dateEntry = document.createElement('div');
         dateEntry.className = 'date-entry';
         dateEntry.dataset.category = categoryKey; // Store category for removal tracking
         dateEntry.innerHTML = `
             <div class="date-entry-controls">
                 <label>Date: <input type="date" id="${dateId}" class="date-input" value="${dateStr}"></label>
-                <label>Count: <input type="number" id="${countId}" class="count-input" value="1" min="1"></label>
+                <div class="count-controls">
+                    <label>Count:</label>
+                    <div class="count-input-group">
+                        <button type="button" class="count-btn count-minus" onclick="adjustCount('${countId}', -1)">-</button>
+                        <input type="number" id="${countId}" class="count-input" value="${existingCount}" min="1" readonly onchange="updateStoredCountValue('${selectionKey}', '${dateStr}', this.value)">
+                        <button type="button" class="count-btn count-plus" onclick="adjustCount('${countId}', 1)">+</button>
+                    </div>
+                </div>
             </div>
             <button type="button" class="remove-date-btn" onclick="removeDateEntry(this.parentElement)">✕ Remove</button>
         `;
         
         container.appendChild(dateEntry);
+        
+        // Store the count value
+        updateStoredCountValue(selectionKey, dateStr, existingCount);
     });
     
-    console.log(`✅ Applied ${multiDatePickerData.selectedDates.length} dates to ${categoryKey}`);
+    console.log(`✅ Applied ${multiDatePickerData.selectedDates.length} dates to ${categoryKey} with preserved counts`);
 }
 
 function applyDatesToService(serviceCode) {
     const container = document.getElementById('dates_' + serviceCode);
     
-    if (!container) return;
+    if (!container) {
+        console.error(`❌ Container not found for service: ${serviceCode}`);
+        console.log(`🔍 Trying to find container with ID: dates_${serviceCode}`);
+        return;
+    }
+    
+    // Store count values from existing entries before clearing
+    const selectionKey = `${multiDatePickerData.targetCategory}_${serviceCode}`;
+    storeExistingCountValues(container, selectionKey);
     
     // Clear existing dates
     container.innerHTML = '';
-    
-    // Initialize counter if needed
-    if (!serviceDateCounters[serviceCode]) {
-        serviceDateCounters[serviceCode] = 0;
-    }
     
     // Add each selected date
     multiDatePickerData.selectedDates.forEach((dateStr, index) => {
         const dateId = `service_date_${serviceCode}_${Date.now()}_${index}`;
         const countId = `service_count_${serviceCode}_${Date.now()}_${index}`;
+        
+        // Get existing count value or default to 1
+        const existingCount = getStoredCountValue(selectionKey, dateStr) || 1;
         
         const dateEntry = document.createElement('div');
         dateEntry.className = 'date-entry';
@@ -892,15 +1036,25 @@ function applyDatesToService(serviceCode) {
         dateEntry.innerHTML = `
             <div class="date-entry-controls">
                 <label>Date: <input type="date" id="${dateId}" class="date-input" value="${dateStr}"></label>
-                <label>Count: <input type="number" id="${countId}" class="count-input" value="1" min="1"></label>
+                <div class="count-controls">
+                    <label>Count:</label>
+                    <div class="count-input-group">
+                        <button type="button" class="count-btn count-minus" onclick="adjustCount('${countId}', -1)">-</button>
+                        <input type="number" id="${countId}" class="count-input" value="${existingCount}" min="1" readonly onchange="updateStoredCountValue('${selectionKey}', '${dateStr}', this.value)">
+                        <button type="button" class="count-btn count-plus" onclick="adjustCount('${countId}', 1)">+</button>
+                    </div>
+                </div>
             </div>
             <button type="button" class="remove-date-btn" onclick="removeDateEntry(this.parentElement)">✕ Remove</button>
         `;
         
         container.appendChild(dateEntry);
+        
+        // Store the count value
+        updateStoredCountValue(selectionKey, dateStr, existingCount);
     });
     
-    console.log(`✅ Applied ${multiDatePickerData.selectedDates.length} dates to service ${serviceCode}`);
+    console.log(`✅ Applied ${multiDatePickerData.selectedDates.length} dates to service ${serviceCode} with preserved counts`);
 }
 
 // Generate JSON (updated for dynamic system)
@@ -928,7 +1082,22 @@ function generateJSON() {
         const sectionId = categoryKey.toLowerCase();
         const toggle = document.getElementById(sectionId + 'Toggle');
         
+        // For categories with toggles (fixed_bundle, single_item), check if toggle is checked
+        // For categories without toggles (amount_based, individual_selection), check if any services are selected
+        let shouldProcessCategory = false;
+        
         if (toggle && toggle.checked) {
+            // Category has toggle and it's checked
+            shouldProcessCategory = true;
+        } else if (!toggle && (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection')) {
+            // Category has no toggle (clickable title), check if any individual services are selected
+            shouldProcessCategory = categoryConfig.codes.some(code => {
+                const checkbox = document.getElementById(sectionId + '_' + code.code);
+                return checkbox && checkbox.checked;
+            });
+        }
+        
+        if (shouldProcessCategory) {
             if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item') {
                 // Multiple dates approach for DELIVERY and BCG
                 const datesContainer = document.getElementById(sectionId + 'Dates');
@@ -939,12 +1108,34 @@ function generateJSON() {
                         const countInput = entry.querySelector('input[type="number"]');
                         
                         if (dateInput && dateInput.value) {
-                            data.workData.push({
-                                category: categoryKey,
-                                date: dateInput.value,
-                                count: parseInt(countInput.value) || 1,
-                                type: categoryConfig.type
-                            });
+                            const count = parseInt(countInput.value) || 1;
+                            const { serviceDate, registerDate } = generateServiceAndRegisterDates(dateInput.value);
+                            
+                            // For fixed_bundle (like DELIVERY), generate entry for each service code
+                            if (categoryConfig.type === 'fixed_bundle') {
+                                categoryConfig.codes.forEach(code => {
+                                    data.workData.push({
+                                        category: categoryKey,
+                                        code: code.code,
+                                        serviceDate: serviceDate,
+                                        registerDate: registerDate,
+                                        count: count,
+                                        type: "individual"
+                                    });
+                                });
+                            } else {
+                                // For single_item (like BCG), generate one entry per category
+                                categoryConfig.codes.forEach(code => {
+                                    data.workData.push({
+                                        category: categoryKey,
+                                        code: code.code,
+                                        serviceDate: serviceDate,
+                                        registerDate: registerDate,
+                                        count: count,
+                                        type: "individual"
+                                    });
+                                });
+                            }
                         } else if (dateInput && !dateInput.value) {
                             emptyDateWarnings.push(`${categoryKey} service has empty date`);
                             skippedEntries++;
@@ -959,6 +1150,8 @@ function generateJSON() {
                     dateEntries.forEach(entry => {
                         const dateInput = entry.querySelector('input[type="date"]');
                         if (dateInput && dateInput.value) {
+                            const { serviceDate, registerDate } = generateServiceAndRegisterDates(dateInput.value);
+                            
                             // Process each selected service for this date
                             categoryConfig.codes.forEach(code => {
                                 const checkbox = document.getElementById(sectionId + '_' + code.code);
@@ -967,7 +1160,8 @@ function generateJSON() {
                                     data.workData.push({
                                         category: categoryKey,
                                         code: code.code,
-                                        date: dateInput.value,
+                                        serviceDate: serviceDate,
+                                        registerDate: registerDate,
                                         count: parseInt(countInput.value) || 1,
                                         type: "individual"
                                     });
@@ -1005,10 +1199,13 @@ function generateJSON() {
                                 const countInput = entry.querySelector('input[type="number"]');
                                 
                                 if (dateInput && dateInput.value) {
+                                    const { serviceDate, registerDate } = generateServiceAndRegisterDates(dateInput.value);
+                                    
                                     data.workData.push({
                                         category: categoryKey,
                                         code: code.code,
-                                        date: dateInput.value,
+                                        serviceDate: serviceDate,
+                                        registerDate: registerDate,
                                         count: parseInt(countInput.value) || 1,
                                         type: "individual"
                                     });
@@ -1077,27 +1274,15 @@ function generateWorkEntriesFromJSON(data) {
     const entries = [];
     
     data.workData.forEach(item => {
-        const formattedDate = formatDate(item.date);
-        const categoryConfig = workCodesConfig.categories[item.category];
+        // Handle new data structure with separate service and register dates
+        const serviceDate = item.serviceDate || item.date; // Fallback for old format
+        const registerDate = item.registerDate || item.date; // Fallback for old format
         
-        if (categoryConfig.type === 'fixed_bundle') {
-            // Add all category tasks
-            for (let i = 0; i < item.count; i++) {
-                categoryConfig.codes.forEach(code => {
-                    entries.push(`${code.code} 1 ${formattedDate} ${formattedDate}`);
-                });
-            }
-        } else if (categoryConfig.type === 'single_item') {
-            // Add single task with count
-            for (let i = 0; i < item.count; i++) {
-                categoryConfig.codes.forEach(code => {
-                    entries.push(`${code.code} 1 ${formattedDate} ${formattedDate}`);
-                });
-            }
-        } else {
-            // Add individual tasks
-            entries.push(`${item.code} ${item.count} ${formattedDate} ${formattedDate}`);
-        }
+        const formattedServiceDate = formatDate(serviceDate);
+        const formattedRegisterDate = formatDate(registerDate);
+        
+        // All work entries now have individual codes with proper counts
+        entries.push(`${item.code} ${item.count} ${formattedServiceDate} ${formattedRegisterDate}`);
     });
     
     return entries;
@@ -1146,6 +1331,117 @@ function reloadConfiguration() {
     loadWorkCodesConfiguration();
 }
 
+// New UI interaction functions
+
+// Toggle item selection when clicking on item row
+function toggleItemSelection(checkboxId) {
+    const checkbox = document.getElementById(checkboxId);
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        handleCheckboxChange(checkbox, extractServiceCode(checkboxId));
+    }
+}
+
+// Handle checkbox state changes and visual feedback
+function handleCheckboxChange(checkbox, serviceCode = null) {
+    const itemRow = checkbox.closest('.item-row') || checkbox.closest('.service-item');
+    const dateButton = itemRow ? itemRow.querySelector('.date-select-btn') : null;
+    
+    if (checkbox.checked) {
+        // Item selected - highlight and enable date button
+        if (itemRow) {
+            itemRow.classList.add('item-selected');
+        }
+        if (dateButton) {
+            dateButton.classList.remove('btn-disabled');
+            dateButton.classList.add('btn-enabled');
+            dateButton.disabled = false;
+        }
+        
+        // For individual selection items, show dates container
+        if (serviceCode) {
+            toggleServiceDates(serviceCode);
+        }
+    } else {
+        // Item deselected - remove highlight and disable date button
+        if (itemRow) {
+            itemRow.classList.remove('item-selected');
+        }
+        if (dateButton) {
+            dateButton.classList.remove('btn-enabled');
+            dateButton.classList.add('btn-disabled');
+            dateButton.disabled = false; // Keep clickable for user feedback
+        }
+        
+        // For individual selection items, hide dates container
+        if (serviceCode) {
+            const datesContainer = document.getElementById('dates_' + serviceCode);
+            if (datesContainer) {
+                datesContainer.classList.remove('active');
+            }
+        }
+    }
+}
+
+// Extract service code from checkbox ID
+function extractServiceCode(checkboxId) {
+    const parts = checkboxId.split('_');
+    return parts.length > 1 ? parts.slice(1).join('_') : null;
+}
+
+// Adjust count using +/- buttons
+function adjustCount(countInputId, delta) {
+    const countInput = document.getElementById(countInputId);
+    if (countInput) {
+        let currentValue = parseInt(countInput.value) || 1;
+        let newValue = currentValue + delta;
+        
+        // Ensure minimum value of 1
+        if (newValue < 1) {
+            newValue = 1;
+        }
+        
+        countInput.value = newValue;
+        
+        // Trigger any change events that might be needed for storage updates
+        const event = new Event('change', { bubbles: true });
+        countInput.dispatchEvent(event);
+        
+        // For date entries, also update stored count values directly
+        const dateEntry = countInput.closest('.date-entry');
+        if (dateEntry) {
+            const dateInput = dateEntry.querySelector('input[type="date"]');
+            if (dateInput && dateInput.value) {
+                const category = dateEntry.dataset.category;
+                const service = dateEntry.dataset.service;
+                const selectionKey = service ? `${category}_${service}` : category;
+                updateStoredCountValue(selectionKey, dateInput.value, newValue);
+            }
+        }
+        
+        console.log(`📊 Count adjusted for ${countInputId}: ${currentValue} → ${newValue}`);
+    }
+}
+
+// Update date button styling based on enablement
+function updateDateButtonStyling() {
+    document.querySelectorAll('.date-select-btn').forEach(button => {
+        // Check if any related checkboxes are selected
+        const section = button.closest('.section');
+        const hasSelectedItems = section ? section.querySelectorAll('.item-checkbox:checked').length > 0 : false;
+        const categoryToggle = section ? section.querySelector('.section-toggle') : null;
+        const isCategorySelected = categoryToggle ? categoryToggle.checked : false;
+        
+        if (hasSelectedItems || isCategorySelected) {
+            button.classList.remove('btn-disabled');
+            button.classList.add('btn-enabled');
+        } else {
+            button.classList.add('btn-disabled');
+            button.classList.remove('btn-enabled');
+        }
+    });
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Initializing dynamic work data entry system...');
@@ -1161,5 +1457,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     loadWorkCodesConfiguration();
+    
+    // Set up periodic date button styling updates
+    setTimeout(() => {
+        updateDateButtonStyling();
+    }, 1000);
 });
  
