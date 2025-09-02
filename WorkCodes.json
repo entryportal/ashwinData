@@ -122,6 +122,12 @@
           "description": "SAARI Program",
           "keywords": ["saari"]
         },
+		{
+          "code": "I2.8", 
+          "amount": 1000,
+          "description": "Aadarsh Dampati",
+          "keywords": ["adarsh","Dampati"]
+        },
         {
           "code": "I5.4",
           "amount": 150,
