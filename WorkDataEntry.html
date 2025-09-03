@@ -623,6 +623,538 @@
                 gap: 10px;
             }
         }
+
+        /* Work Entries Table Styles */
+        .work-entries-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .work-entries-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .work-entries-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 0.95em;
+        }
+
+        .work-entries-table tbody tr {
+            transition: background-color 0.2s;
+        }
+
+        .work-entries-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .work-entries-table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .work-entries-table tbody tr:nth-child(odd) {
+            background-color: white;
+        }
+
+        .work-entries-table .seq-cell {
+            text-align: center;
+            font-weight: bold;
+            color: #6c757d;
+            background-color: #f8f9fa;
+            width: 60px;
+        }
+
+        .work-entries-table .code-cell {
+            font-weight: bold;
+            color: #007bff;
+            font-family: 'Courier New', monospace;
+        }
+
+        .work-entries-table .price-cell,
+        .work-entries-table .total-cell {
+            text-align: right;
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .work-entries-table .count-cell {
+            text-align: center;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .work-entries-table .date-cell {
+            font-family: 'Courier New', monospace;
+            color: #6c757d;
+            text-align: center;
+        }
+
+        .work-entries-table .total-row {
+            background: #f8f9fa !important;
+            border-top: 2px solid #dee2e6;
+        }
+
+        .work-entries-table .total-row td {
+            padding: 15px;
+            font-size: 1.1em;
+        }
+
+        .work-entries-table #grandTotal {
+            color: #28a745;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        /* Empty table state */
+        .empty-table-message {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        /* Table container */
+        #workEntriesTableContainer {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+
+        /* Responsive table */
+        @media (max-width: 768px) {
+            .work-entries-table th,
+            .work-entries-table td {
+                padding: 8px 10px;
+                font-size: 0.85em;
+            }
+            
+            .work-entries-table th {
+                font-size: 0.8em;
+            }
+            
+            #workEntriesTableContainer {
+                overflow-x: auto;
+            }
+        }
+
+        /* Tab Navigation Styles */
+        .tab-container {
+            background: white;
+            border-radius: 10px;
+            padding: 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .tab-navigation {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            background: transparent;
+            color: #6c757d;
+            font-size: 1.1em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-button:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .tab-button.active {
+            background: white;
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+            font-weight: bold;
+        }
+
+        .tab-button.active:hover {
+            background: white;
+        }
+
+        /* Tab Content Styles */
+        .tab-content {
+            margin-top: 0;
+        }
+
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Tab specific adjustments */
+        #dailyWorkContent .search-container {
+            margin-bottom: 0;
+        }
+
+        #monthlyWorkContent .form-container {
+            margin-top: 0;
+        }
+
+        /* Mobile responsive tabs */
+        @media (max-width: 768px) {
+            .tab-button {
+                padding: 12px 15px;
+                font-size: 1em;
+            }
+            
+            .tab-navigation {
+                flex-direction: column;
+            }
+            
+            .tab-button {
+                border-bottom: none;
+                border-left: 3px solid transparent;
+            }
+            
+            .tab-button.active {
+                border-bottom: none;
+                border-left: 3px solid #007bff;
+            }
+        }
+
+        /* Monthly Work specific styles */
+        .monthly-count {
+            background-color: #f8f9fa;
+            border: 1px solid #007bff;
+        }
+
+        .monthly-count:focus {
+            background-color: white;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .monthly-count[readonly] {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+
+        /* Range indicator styling */
+        .count-controls small {
+            display: block;
+            margin-top: 2px;
+            text-align: center;
+            font-style: italic;
+        }
+
+        /* Task display styling for showing included tasks */
+        .task-display {
+            background-color: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            margin: 5px 0;
+            opacity: 0.8;
+            cursor: default;
+        }
+
+        .task-display:hover {
+            background-color: #f8f9fa;
+            transform: none;
+        }
+
+        /* Category checkbox styling */
+        .category-checkbox {
+            margin-right: 15px;
+        }
+
+        /* Clickable category item styling */
+        .item-row.clickable-item {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        /* Category selection highlighting - only show when selected */
+        .category-selected {
+            background-color: #e8f5e8 !important;
+            color: #2e7d32 !important;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        /* Monthly Work Table Styling */
+        .monthly-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+
+        .monthly-section h5 {
+            margin: 0 0 15px 0;
+            color: #007bff;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.2em;
+        }
+
+        .monthly-work-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            background-color: white;
+            border: 1px solid #dee2e6;
+        }
+
+        .monthly-work-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 0.9em;
+        }
+
+        .monthly-work-cell {
+            min-height: 60px;
+            position: relative;
+            width: 10%;
+        }
+
+        .monthly-work-cell.selected {
+            background-color: #e7f3ff;
+            border: 2px solid #007bff;
+        }
+
+        .monthly-code {
+            font-weight: bold;
+            color: #007bff;
+            font-size: 1em;
+            margin-bottom: 5px;
+        }
+
+        .monthly-amount {
+            font-size: 0.8em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .monthly-count {
+            font-size: 0.8em;
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .monthly-checkbox {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 16px;
+            height: 16px;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            border: 2px solid #28a745;
+            border-radius: 3px;
+            background-color: white;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .monthly-checkbox:checked {
+            background-color: #28a745;
+            border-color: #28a745;
+            position: relative;
+        }
+
+        .monthly-checkbox:checked::after {
+            content: '✓';
+            position: absolute;
+            top: -2px;
+            left: 1px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .monthly-checkbox:hover {
+            border-color: #218838;
+            box-shadow: 0 0 3px rgba(40, 167, 69, 0.3);
+        }
+
+        .section-total-row {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .section-total-row td {
+            padding: 12px;
+            font-size: 1.1em;
+            text-align: center;
+            border: none;
+        }
+
+        .monthly-grand-total {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #28a745;
+            color: white;
+            text-align: center;
+            border-radius: 8px;
+            font-size: 1.2em;
+        }
+
+        .monthly-grand-total h5 {
+            margin: 0;
+            color: white;
+        }
+
+        /* Responsive design for monthly tables */
+        @media (max-width: 768px) {
+            .monthly-work-cell {
+                width: 20%;
+                min-height: 80px;
+                font-size: 0.8em;
+            }
+            
+            .monthly-code {
+                font-size: 0.9em;
+            }
+            
+            .monthly-amount {
+                font-size: 0.7em;
+            }
+        }
+
+        /* Cool Show Summary Button Styling */
+        .btn-summary-cool {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            transform: translateY(0);
+            animation: cool-pulse 2s ease-in-out infinite;
+        }
+
+        .btn-summary-cool:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            transform: translateY(-2px);
+            color: white;
+        }
+
+        .btn-summary-cool:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-summary-cool:focus {
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+            outline: none;
+            color: white;
+        }
+
+        /* Cool pulse animation for Show Summary button */
+        @keyframes cool-pulse {
+            0% {
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            }
+            50% {
+                box-shadow: 0 6px 25px rgba(102, 126, 234, 0.7);
+            }
+            100% {
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            }
+        }
+
+        .btn-summary-cool:hover {
+            animation: none; /* Stop pulse on hover */
+        }
+
+        /* Summary Section Styling */
+        .summary-content {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .summary-output {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-line;
+        }
+
+        .summary-item {
+            margin-bottom: 8px;
+            padding: 5px 0;
+            border-bottom: 1px dotted #dee2e6;
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-category {
+            font-weight: bold;
+            color: #007bff;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+
+        .summary-category:first-child {
+            margin-top: 0;
+        }
+
+        .summary-service {
+            color: #495057;
+            margin-left: 10px;
+        }
+
+        .summary-monthly {
+            background-color: #e7f3ff;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -631,30 +1163,71 @@
         <p>Select your completed work activities and dates to generate automation data</p>
     </div>
 
-    <!-- Search functionality -->
+    <!-- Tab Navigation -->
     <div class="form-container">
-        <div class="search-container">
-            <h3>🔍 Search Services</h3>
-            <input type="text" id="searchInput" placeholder="🔎 Type to search services (e.g., 'BCG', 'ANC', 'Operation')..." 
-                   class="search-input" onkeyup="filterServices()">
-            <div class="search-stats" id="searchStats">
-                <span id="searchResultsCount">All services shown</span>
+        <div class="tab-container">
+            <div class="tab-navigation">
+                <button class="tab-button active" id="dailyWorkTab" onclick="switchTab('dailyWork')">📅 Daily Work</button>
+                <button class="tab-button" id="monthlyWorkTab" onclick="switchTab('monthlyWork')">📊 Monthly Work</button>
             </div>
         </div>
     </div>
 
-    <div class="form-container" id="dynamicSections">
-        <!-- All sections will be generated dynamically from WorkCodes.json -->
-        <div class="loading-message">
-            <h3>⏳ Loading work codes from configuration...</h3>
-            <p>Please wait while we load the latest work codes from WorkCodes.json</p>
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- Daily Work Tab -->
+        <div id="dailyWorkContent" class="tab-pane active">
+            <!-- Search functionality -->
+            <div class="form-container">
+                <div class="search-container">
+                    <h3>🔍 Search Services</h3>
+                    <input type="text" id="searchInput" placeholder="🔎 Type to search services (e.g., 'BCG', 'ANC', 'Operation')..." 
+                           class="search-input" onkeyup="filterServices()">
+                    <div class="search-stats" id="searchStats">
+                        <span id="searchResultsCount">All services shown</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-container" id="dailyWorkSections">
+                <!-- Daily work sections will be generated dynamically from WorkCodes.json -->
+                <div class="loading-message">
+                    <h3>⏳ Loading daily work codes from configuration...</h3>
+                    <p>Please wait while we load the latest work codes from WorkCodes.json</p>
+                </div>
+            </div>
         </div>
-        
+
+        <!-- Monthly Work Tab -->
+        <div id="monthlyWorkContent" class="tab-pane">
+            <div class="form-container" id="monthlyWorkSections">
+                <!-- Monthly work sections will be generated dynamically from WorkCodes.json -->
+                <div class="loading-message">
+                    <h3>⏳ Loading monthly work codes from configuration...</h3>
+                    <p>Please wait while we load the latest work codes from WorkCodes.json</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Common Action Buttons -->
+    <div class="form-container">
         <div class="text-center" style="margin-top: 30px; display: none;" id="actionButtons">
-            <button class="btn btn-primary" onclick="generateJSON()">🔄 Generate JSON Data</button>
-            <button class="btn btn-success" onclick="generateWorkEntries()">⚡ Generate Work Entries</button>
+            <button class="btn btn-summary-cool" onclick="showSummary()">📋 Show Summary</button>
             <button class="btn btn-secondary" onclick="clearForm()">🧹 Clear Form</button>
             <button class="btn btn-secondary" onclick="reloadConfiguration()">🔄 Reload Config</button>
+        </div>
+    </div>
+
+    <!-- Work Summary Section -->
+    <div id="summarySection" class="form-container" style="display: none;">
+        <h3>📋 Work Summary</h3>
+        <div class="summary-content">
+            <div id="summaryOutput" class="summary-output"></div>
+            <div class="text-center" style="margin-top: 15px;">
+                <button class="btn btn-success" onclick="generateWorkEntries()">⚡ Generate Work Entries</button>
+                <button class="btn btn-secondary" onclick="hideSummary()" style="margin-left: 10px;">✖️ Close Summary</button>
+            </div>
         </div>
     </div>
 
@@ -672,7 +1245,77 @@
         </div>
         
         <div class="output-section">
-            <h4>Generated Work Entries (for AshwinAuto.java):</h4>
+            <h4>📊 Work Entries Table View:</h4>
+            <div id="workEntriesTableContainer">
+                <table id="workEntriesTable" class="work-entries-table">
+                    <thead>
+                        <tr>
+                            <th>Seq.No.</th>
+                            <th>Code</th>
+                            <th>Price</th>
+                            <th>Count</th>
+                            <th>Total</th>
+                            <th>Service Date</th>
+                            <th>Register Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="workEntriesTableBody">
+                        <!-- Dynamic rows will be added here -->
+                    </tbody>
+                    <tfoot id="workEntriesTableFooter" style="display: none;">
+                        <tr class="total-row">
+                            <td colspan="4"><strong>Grand Total:</strong></td>
+                            <td id="grandTotal"><strong>0</strong></td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Monthly Work Table View -->
+        <div class="output-section" id="monthlyWorkTableSection" style="display: none;">
+            <h4>📋 Monthly Work Table View</h4>
+            
+            <!-- Monthly Package Section -->
+            <div class="monthly-section">
+                <h5>मासिक सेवा (Monthly Service)</h5>
+                <table id="monthlyPackageTable" class="monthly-work-table">
+                    <tbody id="monthlyPackageTableBody">
+                        <!-- Dynamic monthly package rows will be added here -->
+                    </tbody>
+                    <tfoot id="monthlyPackageTableFooter">
+                        <tr class="section-total-row">
+                            <td colspan="100%"><strong>मासिक सेवा कुल योग: ₹<span id="monthlyPackageTotal">0</span></strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- State Package Section -->
+            <div class="monthly-section">
+                <h5>राज्य सेवा (State Service)</h5>
+                <table id="statePackageTable" class="monthly-work-table">
+                    <tbody id="statePackageTableBody">
+                        <!-- Dynamic state package rows will be added here -->
+                    </tbody>
+                    <tfoot id="statePackageTableFooter">
+                        <tr class="section-total-row">
+                            <td colspan="100%"><strong>राज्य सेवा कुल योग: ₹<span id="statePackageTotal">0</span></strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Grand Total for All Work -->
+            <div class="monthly-grand-total">
+                <h5>समग्र कुल योग: ₹<span id="monthlyGrandTotal">0</span></h5>
+            </div>
+        </div>
+        
+        <div class="output-section">
+            <h4>📝 Generated Work Entries (for AshwinAuto.java):</h4>
+            <p><strong>Format:</strong> CODE COUNT SERVICE_DATE REGISTER_DATE</p>
             <div id="workEntriesOutput" class="json-output"></div>
         </div>
     </div>

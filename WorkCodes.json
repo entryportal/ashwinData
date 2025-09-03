@@ -122,12 +122,6 @@
           "description": "SAARI Program",
           "keywords": ["saari"]
         },
-		{
-          "code": "I2.8", 
-          "amount": 1000,
-          "description": "Aadarsh Dampati",
-          "keywords": ["adarsh","Dampati"]
-        },
         {
           "code": "I5.4",
           "amount": 150,
@@ -175,6 +169,122 @@
           "amount": 150,
           "description": "Health Checkup Camp",
           "keywords": ["checkup", "camp", "screening"]
+        }
+      ]
+    },
+    "MONTHLY_PACKAGE": {
+      "name": "मासिक पैकेज",
+      "description": "Monthly package services for healthcare workers",
+      "type": "individual_selection",
+      "codes": [
+        {
+          "code": "PC1.1",
+          "amount": 300,
+          "description": "वर्ष के प्रारंभ में सभी घरों की सूचि बनाने एवं प्रत्येक माह उसको अद्यतन किये जाने हेतु",
+          "keywords": ["घरों की सूचि", "अद्यतन"]
+        },
+        {
+          "code": "PC1.10",
+          "amount": 10,
+          "description": "6 एवं 6 से अधिक 35 लाभार्थी तक",
+          "keywords": ["लाभार्थी"]
+        },
+        {
+          "code": "PC1.2",
+          "amount": 300,
+          "description": "ग्राम स्वास्थ्य एवं सूचकांक पंजिका बनाने एवं सभी जन्म एवं मृत्यु का पंजीकरण करवाते हुए उसको अद्यतन करने हेतु",
+          "keywords": ["ग्राम स्वास्थ्य", "पंजिका", "जन्म", "मृत्यु"]
+        },
+        {
+          "code": "PC1.3",
+          "amount": 300,
+          "description": "ए.एन.सी. हेतु गर्भवती महिलाओ की सूचि प्रत्येक माह अद्यतन(update) करने हेतु",
+          "keywords": ["एएनसी", "गर्भवती", "अद्यतन"]
+        },
+        {
+          "code": "PC1.4",
+          "amount": 300,
+          "description": "योग्य दम्पतियों की सूचि अद्यतन(update) करने हेतु",
+          "keywords": ["दम्पति", "अद्यतन"]
+        },
+        {
+          "code": "PC1.5",
+          "amount": 300,
+          "description": "नियमित टीकाकरण सत्र पर प्रतिमाह लाभार्थियों का अद्यतन डयू लिस्ट बनाने पर",
+          "keywords": ["टीकाकरण", "डयू लिस्ट"]
+        },
+        {
+          "code": "PC1.7",
+          "amount": 150,
+          "description": "ग्राम स्वास्थ्य,स्वच्छता एवं पोषण समिति की बैठक में सहभागिता होने पर",
+          "keywords": ["समिति", "बैठक", "सहभागिता"]
+        },
+        {
+          "code": "PC1.8",
+          "amount": 0,
+          "description": "1-4 (एक से चार) लाभार्थियों को उत्प्रेरण कर प्रतिरक्षित किये जाने पर",
+          "keywords": ["प्रतिरक्षित", "उत्प्रेरण"]
+        },
+        {
+          "code": "PC1.9",
+          "amount": 10,
+          "description": "5 लाभार्थी को उत्प्रेरणप कर प्रतिरक्षित किये जाने पर",
+          "keywords": ["प्रतिरक्षित", "उत्प्रेरण"]
+        },
+        {
+          "code": "PI1.1",
+          "amount": 150,
+          "description": "आशा दिवस पर उपस्तिथि",
+          "keywords": ["आशा दिवस", "उपस्तिथि"]
+        }
+      ]
+    },
+    "STATE_PACKAGE": {
+      "name": "राज्य पैकेज",
+      "description": "State package services for healthcare workers",
+      "type": "individual_selection",
+      "codes": [
+        {
+          "code": "PC2.1",
+          "amount": 0,
+          "description": "प्रतिरक्षण - Due List अघतन कर 90% लक्षित बच्चो का Full Immunization कराने पर",
+          "keywords": ["प्रतिरक्षण", "immunization"]
+        },
+        {
+          "code": "PC2.2",
+          "amount": 0,
+          "description": "शिशु स्वास्थ्य - HBNC के अनतर्गत 60% बच्चो का दिशा निर्देश के अनुरूप पूर्ण संख्या में गृह भ्रमण करने पर",
+          "keywords": ["शिशु स्वास्थ्य", "HBNC", "गृह भ्रमण"]
+        },
+        {
+          "code": "PC2.3",
+          "amount": 0,
+          "description": "मातृ स्वास्थ्य - सभी गर्भवती माताओ का Line Listing एवं 60% गर्भवती माताओ का चार प्रसवपूर्ण जांच (ANC) कराने पर",
+          "keywords": ["मातृ स्वास्थ्य", "गर्भवती", "ANC"]
+        },
+        {
+          "code": "PI2.1",
+          "amount": 0,
+          "description": "मातृ स्वास्थ्य - 60% गर्भवती ममाताओं का संस्थागत प्रसव कराने पर",
+          "keywords": ["मातृ स्वास्थ्य", "संस्थागत प्रसव"]
+        },
+        {
+          "code": "PI2.2",
+          "amount": 0,
+          "description": "परिवार नियोजन - प्रत्येक माह अंतरा का एक DOSE दिलवाए जाने पर",
+          "keywords": ["परिवार नियोजन", "अंतरा"]
+        },
+        {
+          "code": "PI2.3",
+          "amount": 0,
+          "description": "आशा कार्यक्रम - प्रत्येक माह आशा दिवस में भाग लेने पर",
+          "keywords": ["आशा कार्यक्रम", "आशा दिवस"]
+        },
+        {
+          "code": "PC2.4",
+          "amount": 0,
+          "description": "परिवार नियोजन - प्रत्येक माह अंतरा का एक DOSE दिलवाए जाने पर",
+          "keywords": ["परिवार नियोजन", "अंतरा"]
         }
       ]
     }

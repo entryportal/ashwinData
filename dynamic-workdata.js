@@ -100,16 +100,25 @@ function updateDateButtonText(categoryKey, serviceCode = null) {
     const selectedDates = dateSelections[selectionKey] || [];
     const count = selectedDates.length;
     
-    let buttonSelector;
+    let button = null;
+    
     if (serviceCode) {
-        // Individual service button
-        buttonSelector = `button[onclick="showMultiDatePicker('${categoryKey}', '${serviceCode}')"]`;
+        // Individual service button - find by onclick attribute containing the service code
+        const buttons = document.querySelectorAll(`button[onclick*="showMultiDatePicker('${categoryKey}', '${serviceCode}')"]`);
+        button = buttons[0]; // Take the first match
     } else {
-        // Category button
-        buttonSelector = `button[onclick="showMultiDatePicker('${categoryKey}')"]`;
+        // Category button - find by onclick attribute containing just the category
+        const buttons = document.querySelectorAll(`button[onclick*="showMultiDatePicker('${categoryKey}')"]`);
+        // Filter to get exact category match (not including service code)
+        for (let btn of buttons) {
+            const onclick = btn.getAttribute('onclick');
+            if (onclick.includes(`showMultiDatePicker('${categoryKey}')`) && !onclick.includes(`showMultiDatePicker('${categoryKey}',`)) {
+                button = btn;
+                break;
+            }
+        }
     }
     
-    const button = document.querySelector(buttonSelector);
     if (button) {
         const baseText = '📅 Select Dates';
         if (count > 0) {
@@ -121,6 +130,10 @@ function updateDateButtonText(categoryKey, serviceCode = null) {
             button.style.background = ''; // Reset to default
             button.style.fontWeight = '';
         }
+        
+        console.log(`📅 Updated button text for ${selectionKey}: ${count} dates selected`);
+    } else {
+        console.warn(`⚠️ Button not found for ${selectionKey}`);
     }
 }
 
@@ -223,37 +236,58 @@ function loadFallbackConfiguration() {
 
 // Generate HTML sections dynamically from configuration
 function generateSectionsFromConfig() {
-    const container = document.getElementById('dynamicSections');
     const categories = workCodesConfig.categories;
-    
-    let html = '';
     allCategories = Object.keys(categories);
     
-    // Generate each category section
-    Object.entries(categories).forEach(([categoryKey, categoryConfig]) => {
-        html += generateCategorySection(categoryKey, categoryConfig);
-    });
+    // Split categories into Daily Work and Monthly Work
+    const dailyWorkCategories = ['DELIVERY', 'BCG', 'TIKAKARAN', 'EMERGENCY', 'OTHERS'];
+    const monthlyWorkCategories = ['MONTHLY_PACKAGE', 'STATE_PACKAGE'];
     
-    // Add action buttons
-    html += `
-        <div class="text-center" style="margin-top: 30px;" id="actionButtons">
-            <button class="btn btn-primary" onclick="generateJSON()">🔄 Generate JSON Data</button>
-            <button class="btn btn-success" onclick="generateWorkEntries()">⚡ Generate Work Entries</button>
-            <button class="btn btn-secondary" onclick="clearForm()">🧹 Clear Form</button>
-            <button class="btn btn-secondary" onclick="reloadConfiguration()">🔄 Reload Config</button>
-        </div>
-    `;
+    // Generate Daily Work sections
+    generateTabSections(dailyWorkCategories, 'dailyWorkSections', categories);
     
-    container.innerHTML = html;
+    // Generate Monthly Work sections
+    generateTabSections(monthlyWorkCategories, 'monthlyWorkSections', categories);
+    
+    // Show action buttons
+    document.getElementById('actionButtons').style.display = 'block';
     
     // Multi-date picker only - single date options removed for cleaner UX
     const smartMonth = getSmartDefaultMonth();
-    console.log('✅ Configuration loaded - simplified interface with multi-date picker only:', {
+    console.log('✅ Configuration loaded - tab interface with multi-date picker:', {
         smartDefaultMonth: smartMonth.toLocaleDateString('en-US', {year: 'numeric', month: 'long'}),
         currentDate: new Date().toLocaleDateString(),
         logic: new Date().getDate() < 15 ? 'Previous month (current day < 15)' : 'Current month (current day >= 15)',
-        interface: 'Multi-date picker for all categories (including TIKAKARAN)'
+        dailyWorkCategories: dailyWorkCategories.length,
+        monthlyWorkCategories: monthlyWorkCategories.length
     });
+}
+
+// Generate sections for a specific tab
+function generateTabSections(categoryKeys, containerId, categories) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    let html = '';
+    
+    // Generate each category section for this tab
+    categoryKeys.forEach(categoryKey => {
+        if (categories[categoryKey]) {
+            html += generateCategorySection(categoryKey, categories[categoryKey]);
+        }
+    });
+    
+    // If no sections generated, show appropriate message
+    if (html === '') {
+        html = `
+            <div class="loading-message">
+                <h3>📋 No services configured for this tab</h3>
+                <p>Please check WorkCodes.json configuration</p>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
 }
 
 // Generate individual category section HTML
@@ -265,24 +299,29 @@ function generateCategorySection(categoryKey, categoryConfig) {
         <div id="${sectionId}Section" class="section" data-category="${categoryKey}">
             <div class="section-header">`;
     
-    // For categories that need individual selection, make title clickable instead of checkbox
-    if (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection') {
+    // Handle different category types for title behavior
+    if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item') {
+        // For bundle categories, use same structure as individual tasks
+        html += `
+                <div class="item-row clickable-item" onclick="toggleCategorySelectionDirect('${sectionId}', '${categoryKey}')">
+                    <input type="checkbox" id="${sectionId}_category" class="item-checkbox category-checkbox" style="display: none;">
+                    <div class="item-info">
+                        <span class="section-title clickable-title" onclick="event.stopPropagation(); toggleSection('${sectionId}')" style="cursor: pointer;">${icon} ${categoryConfig.name}</span>
+                    </div>
+                </div>`;
+    } else {
+        // For other categories, just expandable titles
         html += `
                 <div class="section-title clickable-title" onclick="toggleSection('${sectionId}')" style="cursor: pointer;">${icon} ${categoryConfig.name}</div>`;
-    } else {
-        // Keep checkbox for fixed_bundle and single_item categories
-        html += `
-                <input type="checkbox" id="${sectionId}Toggle" class="section-toggle" onchange="toggleSection('${sectionId}')">
-                <div class="section-title">${icon} ${categoryConfig.name}</div>`;
     }
     
-    // Add category-specific controls
-    if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item' || categoryConfig.type === 'amount_based') {
-        // Multi-date picker for all category types
-        html += `
+                // Add category-specific controls
+            if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item' || categoryConfig.type === 'amount_based') {
+                // Multi-date picker for all category types
+                html += `
                     <button type="button" class="btn btn-secondary date-select-btn" onclick="showMultiDatePicker('${categoryKey}')" style="margin-left: auto;">📅 Select Dates</button>
                 `;
-    }
+            }
     
     html += `
             </div>
@@ -291,10 +330,12 @@ function generateCategorySection(categoryKey, categoryConfig) {
     
     // Generate content based on category type
     if (categoryConfig.type === 'fixed_bundle') {
-        html += `<p><strong>Complete ${categoryConfig.name.toLowerCase()} process (all tasks will be included for each date):</strong></p>`;
+        html += `<p><strong>Click anywhere on the row to select ${categoryConfig.name.toLowerCase()}, or click the title text to expand/collapse (all tasks will be included for each date):</strong></p>`;
+        
+        html += `<p><strong>This includes the following tasks:</strong></p>`;
         categoryConfig.codes.forEach(code => {
             html += `
-                <div class="item-row" data-search="${code.code.toLowerCase()} ${code.description.toLowerCase()} ${code.amount}">
+                <div class="item-row task-display" data-search="${code.code.toLowerCase()} ${code.description.toLowerCase()} ${code.amount}">
                     <div class="item-info">
                         <span class="item-code">${code.code}</span> - 
                         <span class="item-amount">₹${code.amount}</span> - 
@@ -312,10 +353,12 @@ function generateCategorySection(categoryKey, categoryConfig) {
             </div>
         `;
     } else if (categoryConfig.type === 'single_item') {
-        html += `<p><strong>${categoryConfig.name} (standalone):</strong></p>`;
+        html += `<p><strong>Click anywhere on the row to select ${categoryConfig.name.toLowerCase()}, or click the title text to expand/collapse:</strong></p>`;
+        
+        html += `<p><strong>This includes:</strong></p>`;
         categoryConfig.codes.forEach(code => {
             html += `
-                <div class="item-row" data-search="${code.code.toLowerCase()} ${code.description.toLowerCase()} ${code.amount}">
+                <div class="item-row task-display" data-search="${code.code.toLowerCase()} ${code.description.toLowerCase()} ${code.amount}">
                     <div class="item-info">
                         <span class="item-code">${code.code}</span> - 
                         <span class="item-amount">₹${code.amount}</span> - 
@@ -363,8 +406,20 @@ function generateCategorySection(categoryKey, categoryConfig) {
             </div>
         `;
     } else if (categoryConfig.type === 'individual_selection') {
+        // Check if this is a Monthly Work category (no dates needed)
+        const isMonthlyWork = categoryKey === 'MONTHLY_PACKAGE' || categoryKey === 'STATE_PACKAGE';
+        
+        if (isMonthlyWork) {
+            html += `<p><strong>Select ${categoryConfig.name.toLowerCase()} (monthly activities - no dates required):</strong></p>`;
+        } else {
         html += `<p><strong>Select ${categoryConfig.name.toLowerCase()} (each service can have multiple dates):</strong></p>`;
+        }
+        
         categoryConfig.codes.forEach(code => {
+            // Check if this code needs count field
+            const needsCount = isMonthlyWork && ['PC1.8', 'PC1.9', 'PC1.10'].includes(code.code);
+            const countControls = needsCount ? generateMonthlyCountControls(code.code) : '';
+            
             html += `
                 <div class="service-item" id="service_${code.code}" data-search="${code.code.toLowerCase()} ${code.description.toLowerCase()} ${code.amount}">
                     <div class="item-row clickable-item" onclick="toggleItemSelection('${sectionId}_${code.code}')">
@@ -375,12 +430,13 @@ function generateCategorySection(categoryKey, categoryConfig) {
                             <span class="item-description">${code.description}</span>
                         </div>
                         <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
-                            <button type="button" class="btn btn-secondary date-select-btn" onclick="showMultiDatePicker('${categoryKey}', '${code.code}'); event.stopPropagation();">📅 Select Dates</button>
+                            ${countControls}
+                            ${!isMonthlyWork ? `<button type="button" class="btn btn-secondary date-select-btn" onclick="showMultiDatePicker('${categoryKey}', '${code.code}'); event.stopPropagation();">📅 Select Dates</button>` : ''}
                         </div>
                     </div>
-                    <div class="service-dates" id="dates_${code.code}">
+                    ${!isMonthlyWork ? `<div class="service-dates" id="dates_${code.code}">
                         <!-- Dynamic date entries will be added here -->
-                    </div>
+                    </div>` : ''}
                 </div>
             `;
         });
@@ -394,20 +450,92 @@ function generateCategorySection(categoryKey, categoryConfig) {
     return html;
 }
 
+// Generate count controls for Monthly Work items
+function generateMonthlyCountControls(codeValue) {
+    if (codeValue === 'PC1.9') {
+        // PC1.9: Fixed at 5, disabled
+        return `
+            <div class="count-controls">
+                <label>Count:</label>
+                <div class="count-input-group">
+                    <input type="number" class="count-input monthly-count" id="monthly_count_${codeValue}" value="5" min="5" max="5" readonly title="Fixed count for this service">
+                </div>
+            </div>
+        `;
+    } else if (codeValue === 'PC1.10') {
+        // PC1.10: Range 6-35
+        return `
+            <div class="count-controls">
+                <label>Count:</label>
+                <div class="count-input-group">
+                    <button type="button" class="count-btn count-minus" onclick="adjustMonthlyCount('monthly_count_${codeValue}', -1); event.stopPropagation();">-</button>
+                    <input type="number" class="count-input monthly-count" id="monthly_count_${codeValue}" value="6" min="6" max="35" onchange="validateMonthlyCount(this, 6, 35)">
+                    <button type="button" class="count-btn count-plus" onclick="adjustMonthlyCount('monthly_count_${codeValue}', 1); event.stopPropagation();">+</button>
+                </div>
+                <small style="color: #6c757d; font-size: 0.8em;">Range: 6-35</small>
+            </div>
+        `;
+    } else if (codeValue === 'PC1.8') {
+        // PC1.8: User editable, no specific range
+        return `
+            <div class="count-controls">
+                <label>Count:</label>
+                <div class="count-input-group">
+                    <button type="button" class="count-btn count-minus" onclick="adjustMonthlyCount('monthly_count_${codeValue}', -1); event.stopPropagation();">-</button>
+                    <input type="number" class="count-input monthly-count" id="monthly_count_${codeValue}" value="1" min="1">
+                    <button type="button" class="count-btn count-plus" onclick="adjustMonthlyCount('monthly_count_${codeValue}', 1); event.stopPropagation();">+</button>
+                </div>
+            </div>
+        `;
+    }
+    return '';
+}
+
 // Get appropriate icon for category
 function getCategoryIcon(categoryKey) {
     const icons = {
         'DELIVERY': '🤱',
         'BCG': '💉',
         'TIKAKARAN': '🏥',
-        'OTHERS': '📋'
+        'EMERGENCY': '🚨',
+        'OTHERS': '📋',
+        'MONTHLY_PACKAGE': '📦',
+        'STATE_PACKAGE': '🏛️'
     };
     return icons[categoryKey] || '📋';
 }
 
+// Tab switching functionality
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.classList.remove('active');
+    });
+    document.getElementById(tabName + 'Tab').classList.add('active');
+    
+    // Update tab content
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    document.getElementById(tabName + 'Content').classList.add('active');
+    
+    // Clear search when switching tabs
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = '';
+        filterServices();
+    }
+    
+    console.log(`🔄 Switched to ${tabName} tab`);
+}
+
 // Show configuration information
 function showConfigInfo(isFallback = false) {
-    const container = document.getElementById('dynamicSections');
+    const containers = [
+        document.getElementById('dailyWorkSections'),
+        document.getElementById('monthlyWorkSections')
+    ];
+    
     const totalServices = Object.values(workCodesConfig.categories).reduce((total, category) => total + category.codes.length, 0);
     
     const infoHtml = `
@@ -420,15 +548,25 @@ function showConfigInfo(isFallback = false) {
         </div>
     `;
     
+    // Add config info to both tabs
+    containers.forEach(container => {
+        if (container) {
     container.insertAdjacentHTML('afterbegin', infoHtml);
+        }
+    });
 }
 
-// Search functionality
+// Search functionality - only searches within the active tab
 function filterServices() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-    const allSections = document.querySelectorAll('.section');
-    const allServiceItems = document.querySelectorAll('.service-item');
-    const allItemRows = document.querySelectorAll('.item-row[data-search]');
+    
+    // Get the currently active tab content
+    const activeTab = document.querySelector('.tab-pane.active');
+    if (!activeTab) return;
+    
+    const allSections = activeTab.querySelectorAll('.section');
+    const allServiceItems = activeTab.querySelectorAll('.service-item');
+    const allItemRows = activeTab.querySelectorAll('.item-row[data-search]');
     
     let visibleSections = 0;
     let visibleServices = 0;
@@ -442,7 +580,10 @@ function filterServices() {
             row.innerHTML = row.innerHTML.replace(/<span class="highlight">(.*?)<\/span>/gi, '$1');
         });
         
-        document.getElementById('searchResultsCount').textContent = 'All services shown';
+        const searchResultsElement = document.getElementById('searchResultsCount');
+        if (searchResultsElement) {
+            searchResultsElement.textContent = 'All services shown';
+        }
         return;
     }
     
@@ -494,8 +635,11 @@ function filterServices() {
     
     // Update search statistics
     const totalServices = allServiceItems.length + allItemRows.length;
-    document.getElementById('searchResultsCount').textContent = 
+    const searchResultsElement = document.getElementById('searchResultsCount');
+    if (searchResultsElement) {
+        searchResultsElement.textContent = 
         `Found ${visibleServices} services in ${visibleSections} categories (${totalServices} total)`;
+    }
 }
 
 // Highlight search terms
@@ -514,13 +658,16 @@ function highlightText(element, searchTerm) {
 function toggleSection(sectionName) {
     const section = document.getElementById(sectionName + 'Section');
     const toggle = document.getElementById(sectionName + 'Toggle');
+    const expandBtn = section ? section.querySelector('.expand-btn') : null;
     
     // Handle clickable titles (for categories without checkboxes)
     if (!toggle) {
         if (section.classList.contains('active')) {
             section.classList.remove('active');
+            if (expandBtn) expandBtn.classList.remove('expanded');
         } else {
             section.classList.add('active');
+            if (expandBtn) expandBtn.classList.add('expanded');
         }
         return;
     }
@@ -528,9 +675,14 @@ function toggleSection(sectionName) {
     // Handle checkbox-based toggles
     if (toggle && toggle.checked) {
         section.classList.add('active');
+        if (expandBtn) expandBtn.classList.add('expanded');
     } else if (section) {
         section.classList.remove('active');
+        if (expandBtn) expandBtn.classList.remove('expanded');
     }
+    
+    // Update date button styling after any section toggle
+    updateDateButtonStyling();
 }
 
 function toggleServiceDates(serviceCode) {
@@ -587,6 +739,9 @@ function removeDateEntry(dateEntry) {
         
         // Update button text to reflect the change
         updateDateButtonText(categoryKey, serviceCode);
+        
+        // Also update all button texts to ensure consistency
+        updateAllDateButtonTexts();
     }
     
     // Remove the DOM element
@@ -717,10 +872,10 @@ function getSelectedServicesForCategory(categoryKey, serviceCode) {
                     }
                 });
             } else {
-                // For fixed_bundle and single_item categories, check category toggle
-                const categoryToggle = document.getElementById(`${sectionId}Toggle`);
-                if (categoryToggle && categoryToggle.checked) {
-                    selectedServices.push({category: categoryKey, selected: true});
+                // For fixed_bundle and single_item categories, check category checkbox
+                const categoryCheckbox = document.getElementById(`${sectionId}_category`);
+                if (categoryCheckbox && categoryCheckbox.checked) {
+                selectedServices.push({category: categoryKey, selected: true});
                 }
             }
         }
@@ -954,6 +1109,9 @@ function applySelectedDates() {
     // Update button text to show selection count
     updateDateButtonText(categoryKey, serviceCode);
     
+    // Also update all button texts to ensure consistency
+    updateAllDateButtonTexts();
+    
     closeMultiDatePicker();
 }
 
@@ -1055,6 +1213,9 @@ function applyDatesToService(serviceCode) {
     });
     
     console.log(`✅ Applied ${multiDatePickerData.selectedDates.length} dates to service ${serviceCode} with preserved counts`);
+    
+    // Force button text update for individual services
+    updateDateButtonText(multiDatePickerData.targetCategory, serviceCode);
 }
 
 // Generate JSON (updated for dynamic system)
@@ -1071,7 +1232,8 @@ function generateJSON() {
             version: "3.0-dynamic",
             configVersion: workCodesConfig.metadata.version
         },
-        workData: []
+        workData: [],
+        monthlyData: []  // Separate array for Monthly Work
     };
     
     let emptyDateWarnings = [];
@@ -1081,16 +1243,22 @@ function generateJSON() {
     Object.entries(workCodesConfig.categories).forEach(([categoryKey, categoryConfig]) => {
         const sectionId = categoryKey.toLowerCase();
         const toggle = document.getElementById(sectionId + 'Toggle');
+        const isMonthlyWork = categoryKey === 'MONTHLY_PACKAGE' || categoryKey === 'STATE_PACKAGE';
         
-        // For categories with toggles (fixed_bundle, single_item), check if toggle is checked
-        // For categories without toggles (amount_based, individual_selection), check if any services are selected
+        // Check if category should be processed based on its selection method
         let shouldProcessCategory = false;
         
+        // Check for old-style section toggle (no longer used but keeping for backwards compatibility)
         if (toggle && toggle.checked) {
-            // Category has toggle and it's checked
             shouldProcessCategory = true;
-        } else if (!toggle && (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection')) {
-            // Category has no toggle (clickable title), check if any individual services are selected
+        }
+        // Check for new-style category checkbox (for fixed_bundle and single_item)
+        else if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item') {
+            const categoryCheckbox = document.getElementById(sectionId + '_category');
+            shouldProcessCategory = categoryCheckbox && categoryCheckbox.checked;
+        }
+        // Check for individual service selections (amount_based, individual_selection)
+        else if (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection') {
             shouldProcessCategory = categoryConfig.codes.some(code => {
                 const checkbox = document.getElementById(sectionId + '_' + code.code);
                 return checkbox && checkbox.checked;
@@ -1098,6 +1266,60 @@ function generateJSON() {
         }
         
         if (shouldProcessCategory) {
+            // Handle Monthly Work categories differently
+            if (isMonthlyWork) {
+                processMonthlyWorkCategory(categoryKey, categoryConfig, data, sectionId);
+            } else {
+                processRegularCategory(categoryKey, categoryConfig, data, sectionId, emptyDateWarnings, skippedEntries);
+            }
+        }
+    });
+    
+    // Show warnings if there are empty dates (only for regular categories)
+    if (emptyDateWarnings.length > 0) {
+        const warningMessage = `⚠️ WARNING: Found ${skippedEntries} entries with missing dates:\n\n` +
+            emptyDateWarnings.map(warning => `• ${warning}`).join('\n') + 
+            `\n\nThese entries were skipped. Please fill in the dates and try again.\n\n` +
+            `Generated ${data.workData.length} valid entries.`;
+        
+        alert(warningMessage);
+        console.warn('📅 Empty date validation:', {
+            warnings: emptyDateWarnings,
+            skippedEntries: skippedEntries,
+            validEntries: data.workData.length
+        });
+    }
+    
+    displayResults(data);
+}
+
+// Process Monthly Work categories (no dates, just code and count)
+function processMonthlyWorkCategory(categoryKey, categoryConfig, data, sectionId) {
+    categoryConfig.codes.forEach(code => {
+        const checkbox = document.getElementById(sectionId + '_' + code.code);
+        if (checkbox && checkbox.checked) {
+            let count = 1;
+            
+            // Get count for specific codes that have count fields
+            if (['PC1.8', 'PC1.9', 'PC1.10'].includes(code.code)) {
+                const countInput = document.getElementById('monthly_count_' + code.code);
+                if (countInput) {
+                    count = parseInt(countInput.value) || 1;
+                }
+            }
+            
+            data.monthlyData.push({
+                category: categoryKey,
+                code: code.code,
+                count: count,
+                type: "monthly"
+            });
+        }
+    });
+}
+
+// Process regular categories (with dates)
+function processRegularCategory(categoryKey, categoryConfig, data, sectionId, emptyDateWarnings, skippedEntries) {
             if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item') {
                 // Multiple dates approach for DELIVERY and BCG
                 const datesContainer = document.getElementById(sectionId + 'Dates');
@@ -1114,24 +1336,32 @@ function generateJSON() {
                             // For fixed_bundle (like DELIVERY), generate entry for each service code
                             if (categoryConfig.type === 'fixed_bundle') {
                                 categoryConfig.codes.forEach(code => {
+                                    const price = code.amount || 0;
+                                    const totalPrice = price * count;
                                     data.workData.push({
                                         category: categoryKey,
                                         code: code.code,
+                                        price: price,
                                         serviceDate: serviceDate,
                                         registerDate: registerDate,
                                         count: count,
+                                        totalPrice: totalPrice,
                                         type: "individual"
                                     });
                                 });
                             } else {
                                 // For single_item (like BCG), generate one entry per category
                                 categoryConfig.codes.forEach(code => {
+                                    const price = code.amount || 0;
+                                    const totalPrice = price * count;
                                     data.workData.push({
                                         category: categoryKey,
                                         code: code.code,
+                                        price: price,
                                         serviceDate: serviceDate,
                                         registerDate: registerDate,
                                         count: count,
+                                        totalPrice: totalPrice,
                                         type: "individual"
                                     });
                                 });
@@ -1157,12 +1387,17 @@ function generateJSON() {
                                 const checkbox = document.getElementById(sectionId + '_' + code.code);
                                 if (checkbox && checkbox.checked) {
                                     const countInput = document.getElementById('count_' + code.code);
+                                    const count = parseInt(countInput.value) || 1;
+                                    const price = code.amount || 0;
+                                    const totalPrice = price * count;
                                     data.workData.push({
                                         category: categoryKey,
                                         code: code.code,
+                                        price: price,
                                         serviceDate: serviceDate,
                                         registerDate: registerDate,
-                                        count: parseInt(countInput.value) || 1,
+                                        count: count,
+                                        totalPrice: totalPrice,
                                         type: "individual"
                                     });
                                 }
@@ -1200,13 +1435,18 @@ function generateJSON() {
                                 
                                 if (dateInput && dateInput.value) {
                                     const { serviceDate, registerDate } = generateServiceAndRegisterDates(dateInput.value);
+                                    const count = parseInt(countInput.value) || 1;
+                                    const price = code.amount || 0;
+                                    const totalPrice = price * count;
                                     
                                     data.workData.push({
                                         category: categoryKey,
                                         code: code.code,
+                                        price: price,
                                         serviceDate: serviceDate,
                                         registerDate: registerDate,
-                                        count: parseInt(countInput.value) || 1,
+                                        count: count,
+                                        totalPrice: totalPrice,
                                         type: "individual"
                                     });
                                     hasValidDates = true;
@@ -1226,28 +1466,16 @@ function generateJSON() {
                 });
             }
         }
-    });
-    
-    // Show warnings if there are empty dates
-    if (emptyDateWarnings.length > 0) {
-        const warningMessage = `⚠️ WARNING: Found ${skippedEntries} entries with missing dates:\n\n` +
-            emptyDateWarnings.map(warning => `• ${warning}`).join('\n') + 
-            `\n\nThese entries were skipped. Please fill in the dates and try again.\n\n` +
-            `Generated ${data.workData.length} valid entries.`;
-        
-        alert(warningMessage);
-        console.warn('📅 Empty date validation:', {
-            warnings: emptyDateWarnings,
-            skippedEntries: skippedEntries,
-            validEntries: data.workData.length
-        });
-    }
-    
-    displayResults(data);
-}
 
 function generateWorkEntries() {
+    // Hide summary section when generating
+    hideSummary();
+    
+    // Generate the work entries
     generateJSON();
+    
+    // Show success message
+    console.log('✅ Work entries generated successfully after summary review');
 }
 
 function displayResults(data) {
@@ -1255,24 +1483,265 @@ function displayResults(data) {
     document.getElementById('jsonOutput').textContent = JSON.stringify(data, null, 2);
     
     const totalItemEntries = data.workData.length;
+    const totalMonthlyEntries = data.monthlyData ? data.monthlyData.length : 0;
     const totalWorkEntries = generateWorkEntriesFromJSON(data).length;
     const categories = [...new Set(data.workData.map(item => item.category))];
+    const monthlyCategories = data.monthlyData ? [...new Set(data.monthlyData.map(item => item.category))] : [];
+    
+    // Calculate grand total for regular entries only (exclude monthly)
+    const grandTotal = data.workData.reduce((total, item) => total + (item.totalPrice || 0), 0);
     
     document.getElementById('summaryContent').innerHTML = `
-        <strong>Total Data Items:</strong> ${totalItemEntries}<br>
+        <strong>Daily Work Entries:</strong> ${totalItemEntries}<br>
+        <strong>Monthly Work Entries:</strong> ${totalMonthlyEntries}<br>
         <strong>Total Work Entries:</strong> ${totalWorkEntries}<br>
-        <strong>Categories Used:</strong> ${categories.join(', ')}<br>
+        <strong>Daily Work Amount:</strong> ${grandTotal}<br>
+        <strong>Daily Categories:</strong> ${categories.join(', ')}<br>
+        <strong>Monthly Categories:</strong> ${monthlyCategories.join(', ')}<br>
         <strong>Config Version:</strong> ${data.metadata.configVersion || 'Unknown'}<br>
         <strong>Generated At:</strong> ${new Date(data.metadata.generatedAt).toLocaleString()}
     `;
     
     const workEntries = generateWorkEntriesFromJSON(data);
     document.getElementById('workEntriesOutput').textContent = workEntries.join('\n');
+    
+    // Generate and display table (only for daily work, exclude monthly)
+    generateWorkEntriesTable(data.workData, grandTotal);
+    
+    // Generate and display monthly work table if there's monthly data
+    if (data.monthlyData && data.monthlyData.length > 0) {
+        generateMonthlyWorkTable(data.monthlyData);
+        document.getElementById('monthlyWorkTableSection').style.display = 'block';
+        // Calculate overall grand total after both tables are generated
+        calculateMonthlyGrandTotal();
+    } else {
+        document.getElementById('monthlyWorkTableSection').style.display = 'none';
+        // If no monthly data, grand total is just daily work total
+        document.getElementById('monthlyGrandTotal').textContent = grandTotal;
+    }
+}
+
+function generateWorkEntriesTable(workData, grandTotal) {
+    const tableBody = document.getElementById('workEntriesTableBody');
+    const tableFooter = document.getElementById('workEntriesTableFooter');
+    const grandTotalElement = document.getElementById('grandTotal');
+    
+    // Clear existing table content
+    tableBody.innerHTML = '';
+    
+    if (workData.length === 0) {
+        // Show empty state
+        tableBody.innerHTML = '<tr><td colspan="7" class="empty-table-message">No work entries generated yet. Please select services and dates, then click "Generate Work Entries".</td></tr>';
+        tableFooter.style.display = 'none';
+        return;
+    }
+    
+    // Generate table rows
+    workData.forEach((item, index) => {
+        const serviceDate = item.serviceDate || item.date;
+        const registerDate = item.registerDate || item.date;
+        
+        const formattedServiceDate = formatDate(serviceDate);
+        const formattedRegisterDate = formatDate(registerDate);
+        
+        const price = item.price || 0;
+        const totalPrice = item.totalPrice || (price * item.count);
+        const sequenceNumber = index + 1; // Sequential numbering starting from 1
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="seq-cell">${sequenceNumber}</td>
+            <td class="code-cell">${item.code}</td>
+            <td class="price-cell">${price}</td>
+            <td class="count-cell">${item.count}</td>
+            <td class="total-cell">${totalPrice}</td>
+            <td class="date-cell">${formattedServiceDate}</td>
+            <td class="date-cell">${formattedRegisterDate}</td>
+        `;
+        
+        // Add hover effect with animation
+        row.style.opacity = '0';
+        row.style.transform = 'translateY(10px)';
+        tableBody.appendChild(row);
+        
+        // Animate row entry
+        setTimeout(() => {
+            row.style.transition = 'opacity 0.3s, transform 0.3s';
+            row.style.opacity = '1';
+            row.style.transform = 'translateY(0)';
+        }, index * 50); // Stagger animation
+    });
+    
+    // Show footer with grand total (without ₹ symbol)
+    grandTotalElement.textContent = `${grandTotal}`;
+    tableFooter.style.display = 'table-footer-group';
+    
+    console.log(`📊 Generated table with ${workData.length} entries, Grand Total: ${grandTotal}`);
+}
+
+// Generate Monthly Work Table
+function generateMonthlyWorkTable(monthlyData) {
+    if (!workCodesConfig || !workCodesConfig.categories) {
+        console.error('❌ WorkCodes configuration not available for monthly table generation');
+        return;
+    }
+
+    // Get all selected codes from monthly data
+    const selectedCodes = new Set(monthlyData.map(item => item.code));
+    const selectedCodeData = {};
+    monthlyData.forEach(item => {
+        selectedCodeData[item.code] = item;
+    });
+
+    // Generate Monthly Package Table
+    const monthlyPackageCodes = workCodesConfig.categories.MONTHLY_PACKAGE?.codes || [];
+    const monthlyPackageTableBody = document.getElementById('monthlyPackageTableBody');
+    const monthlyPackageTotal = document.getElementById('monthlyPackageTotal');
+    
+    generateMonthlySection(monthlyPackageCodes, monthlyPackageTableBody, selectedCodes, selectedCodeData, monthlyPackageTotal, 'MONTHLY_PACKAGE');
+
+    // Generate State Package Table
+    const statePackageCodes = workCodesConfig.categories.STATE_PACKAGE?.codes || [];
+    const statePackageTableBody = document.getElementById('statePackageTableBody');
+    const statePackageTotal = document.getElementById('statePackageTotal');
+    
+    generateMonthlySection(statePackageCodes, statePackageTableBody, selectedCodes, selectedCodeData, statePackageTotal, 'STATE_PACKAGE');
+    
+    console.log(`📋 Generated monthly work table with ${monthlyData.length} selected items`);
+}
+
+// Generate Monthly Section Table
+function generateMonthlySection(codes, tableBody, selectedCodes, selectedCodeData, totalElement, sectionType) {
+    // Clear existing content
+    tableBody.innerHTML = '';
+    
+    // Define specific order for Monthly Package
+    const monthlyPackageOrder = ['PC1.1', 'PC1.2', 'PC1.3', 'PC1.4', 'PC1.5', 'PI1.1', 'PC1.7', 'PC1.8', 'PC1.9', 'PC1.10'];
+    
+    // Sort codes based on section type
+    let sortedCodes = codes;
+    if (sectionType === 'MONTHLY_PACKAGE') {
+        // Sort Monthly Package codes according to specified order
+        sortedCodes = codes.sort((a, b) => {
+            const indexA = monthlyPackageOrder.indexOf(a.code);
+            const indexB = monthlyPackageOrder.indexOf(b.code);
+            if (indexA === -1) return 1; // Unknown codes go to end
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+    }
+    
+    // Create rows with 5 codes per row (adjust as needed)
+    const codesPerRow = 5;
+    let totalAmount = 0;
+    let hasSelectedServices = false;
+    
+    for (let i = 0; i < sortedCodes.length; i += codesPerRow) {
+        const row = document.createElement('tr');
+        
+        for (let j = 0; j < codesPerRow; j++) {
+            const codeIndex = i + j;
+            const cell = document.createElement('td');
+            cell.className = 'monthly-work-cell';
+            
+            if (codeIndex < sortedCodes.length) {
+                const code = sortedCodes[codeIndex];
+                const isSelected = selectedCodes.has(code.code);
+                const selectedData = selectedCodeData[code.code];
+                
+                if (isSelected) {
+                    cell.classList.add('selected');
+                    hasSelectedServices = true;
+                    
+                    // Special handling for State Service - always 1000 when any service is selected
+                    if (sectionType === 'STATE_PACKAGE') {
+                        // State service total will be set to 1000 outside this loop
+                    } else {
+                        // Calculate amount contribution for Monthly Package
+                        let amount = code.amount || 0;
+                        let count = 1;
+                        
+                        if (['PC1.8', 'PC1.9', 'PC1.10'].includes(code.code) && selectedData) {
+                            count = selectedData.count || 1;
+                            if (code.code === 'PC1.10') {
+                                // PC1.10 is per beneficiary, so multiply by count
+                                amount = amount * count;
+                            } else if (code.code === 'PC1.9') {
+                                // PC1.9 has special calculation (fixed at 5, amount is 50)
+                                amount = 50; // Fixed amount for PC1.9
+                            }
+                        }
+                        
+                        totalAmount += amount;
+                    }
+                }
+                
+                // Create cell content
+                let cellContent = `
+                    <input type="checkbox" class="monthly-checkbox" ${isSelected ? 'checked' : ''} disabled>
+                    <div class="monthly-code">${code.code}</div>
+                    <div class="monthly-amount">${formatMonthlyAmount(code.code, code.amount || 0)}</div>
+                `;
+                
+                // Add count information for specific codes
+                if (['PC1.8', 'PC1.9', 'PC1.10'].includes(code.code) && isSelected && selectedData) {
+                    cellContent += `<div class="monthly-count">संख्या: ${selectedData.count || 1}</div>`;
+                }
+                
+                cell.innerHTML = cellContent;
+            }
+            
+            row.appendChild(cell);
+        }
+        
+        tableBody.appendChild(row);
+    }
+    
+    // Update section total
+    if (sectionType === 'STATE_PACKAGE' && hasSelectedServices) {
+        // State Service: always 1000 when any service is selected
+        totalElement.textContent = 1000;
+    } else {
+        // Monthly Package: calculated total
+        totalElement.textContent = totalAmount;
+    }
+}
+
+// Format monthly amount display
+function formatMonthlyAmount(codeValue, amount) {
+    if (codeValue === 'PC1.10') {
+        return `${amount}/-रुपये प्रति लाभार्थी`;
+    } else if (codeValue === 'PC1.9') {
+        return `50/-रुपये प्रतिमाह`;
+    } else if (amount === 0) {
+        return `0/-रुपये`;
+    } else {
+        return `${amount}/-रुपये प्रतिमाह`;
+    }
+}
+
+// Calculate Overall Grand Total (Daily Work + Monthly Work)
+function calculateMonthlyGrandTotal() {
+    // Get Monthly Work totals
+    const monthlyPackageTotal = parseInt(document.getElementById('monthlyPackageTotal').textContent) || 0;
+    const statePackageTotal = parseInt(document.getElementById('statePackageTotal').textContent) || 0;
+    const monthlyWorkTotal = monthlyPackageTotal + statePackageTotal;
+    
+    // Get Daily Work total from the main table
+    const dailyWorkTotal = parseInt(document.getElementById('grandTotal').textContent) || 0;
+    
+    // Calculate overall grand total
+    const overallGrandTotal = dailyWorkTotal + monthlyWorkTotal;
+    
+    document.getElementById('monthlyGrandTotal').textContent = overallGrandTotal;
+    
+    console.log(`💰 Grand Total Calculation: Daily Work: ${dailyWorkTotal} + Monthly Work: ${monthlyWorkTotal} = Overall: ${overallGrandTotal}`);
 }
 
 function generateWorkEntriesFromJSON(data) {
     const entries = [];
     
+    // Handle regular daily work entries
     data.workData.forEach(item => {
         // Handle new data structure with separate service and register dates
         const serviceDate = item.serviceDate || item.date; // Fallback for old format
@@ -1281,9 +1750,22 @@ function generateWorkEntriesFromJSON(data) {
         const formattedServiceDate = formatDate(serviceDate);
         const formattedRegisterDate = formatDate(registerDate);
         
-        // All work entries now have individual codes with proper counts
+        // Original format: CODE COUNT SERVICE_DATE REGISTER_DATE (no pricing columns)
         entries.push(`${item.code} ${item.count} ${formattedServiceDate} ${formattedRegisterDate}`);
     });
+    
+    // Handle monthly work entries (different format)
+    if (data.monthlyData && data.monthlyData.length > 0) {
+        data.monthlyData.forEach(item => {
+            // For monthly work: just CODE and COUNT (only for PC1.8, PC1.9, PC1.10)
+            if (['PC1.8', 'PC1.9', 'PC1.10'].includes(item.code)) {
+                entries.push(`${item.code} ${item.count}`);
+            } else {
+                // For other monthly codes, just the code
+                entries.push(`${item.code}`);
+            }
+        });
+    }
     
     return entries;
 }
@@ -1297,9 +1779,26 @@ function formatDate(dateStr) {
 }
 
 function clearForm() {
+    // Clear form elements in both tabs
     document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     document.querySelectorAll('input[type="date"]').forEach(input => input.value = '');
-    document.querySelectorAll('input[type="number"]').forEach(input => input.value = '1');
+    document.querySelectorAll('input[type="number"]:not(.monthly-count)').forEach(input => input.value = '1');
+    
+    // Remove selection highlights from all clickable items and category titles
+    document.querySelectorAll('.item-selected').forEach(item => item.classList.remove('item-selected'));
+    document.querySelectorAll('.category-selected').forEach(title => title.classList.remove('category-selected'));
+    
+    // Reset monthly count fields to their defaults
+    document.querySelectorAll('.monthly-count').forEach(input => {
+        const inputId = input.id;
+        if (inputId.includes('PC1.9')) {
+            input.value = '5'; // PC1.9 always 5
+        } else if (inputId.includes('PC1.10')) {
+            input.value = '6'; // PC1.10 minimum 6
+        } else if (inputId.includes('PC1.8')) {
+            input.value = '1'; // PC1.8 default 1
+        }
+    });
     document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
     document.querySelectorAll('.service-dates').forEach(container => {
         container.innerHTML = '';
@@ -1314,19 +1813,298 @@ function clearForm() {
     });
     
     document.getElementById('outputSection').style.display = 'none';
-    document.getElementById('searchInput').value = '';
     
-    // Reset counters
-    deliveryDateCounter = 0;
-    bcgDateCounter = 0;
-    serviceDateCounters = {};
+    // Hide summary section
+    document.getElementById('summarySection').style.display = 'none';
+    
+    // Clear search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    
+    // Clear the table
+    const tableBody = document.getElementById('workEntriesTableBody');
+    const tableFooter = document.getElementById('workEntriesTableFooter');
+    if (tableBody) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="empty-table-message">No work entries generated yet. Please select services and dates, then click "Generate Work Entries".</td></tr>';
+    }
+    if (tableFooter) {
+        tableFooter.style.display = 'none';
+    }
+
+    // Clear monthly work table
+    const monthlyTableSection = document.getElementById('monthlyWorkTableSection');
+    const monthlyPackageTableBody = document.getElementById('monthlyPackageTableBody');
+    const statePackageTableBody = document.getElementById('statePackageTableBody');
+    const monthlyPackageTotal = document.getElementById('monthlyPackageTotal');
+    const statePackageTotal = document.getElementById('statePackageTotal');
+    const monthlyGrandTotal = document.getElementById('monthlyGrandTotal');
+    
+    if (monthlyTableSection) {
+        monthlyTableSection.style.display = 'none';
+    }
+    if (monthlyPackageTableBody) {
+        monthlyPackageTableBody.innerHTML = '<tr><td colspan="5" class="empty-table-message">No monthly work data</td></tr>';
+    }
+    if (statePackageTableBody) {
+        statePackageTableBody.innerHTML = '<tr><td colspan="5" class="empty-table-message">No state work data</td></tr>';
+    }
+    if (monthlyPackageTotal) {
+        monthlyPackageTotal.textContent = '0';
+    }
+    if (statePackageTotal) {
+        statePackageTotal.textContent = '0';
+    }
+    if (monthlyGrandTotal) {
+        monthlyGrandTotal.textContent = '0';
+    }
+    
+    // Clear persistent storage
+    dateSelections = {};
+    dateCountValues = {};
     
     // Clear search
     filterServices();
+    
+    console.log('🧹 Form cleared and table reset for both tabs');
+}
+
+// Show Summary Function
+function showSummary() {
+    if (!workCodesConfig) {
+        alert('Configuration not loaded. Please wait or reload the page.');
+        return;
+    }
+
+    const summaryData = generateWorkSummary();
+    
+    if (summaryData.length === 0) {
+        alert('📋 No work selected. Please select some services and dates to generate a summary.');
+        return;
+    }
+
+    // Display summary
+    const summaryOutput = document.getElementById('summaryOutput');
+    summaryOutput.innerHTML = summaryData.join('\n');
+    
+    // Show summary section
+    document.getElementById('summarySection').style.display = 'block';
+    
+    // Scroll to summary section
+    document.getElementById('summarySection').scrollIntoView({ behavior: 'smooth' });
+    
+    console.log('📋 Summary generated and displayed');
+}
+
+// Hide Summary Function
+function hideSummary() {
+    document.getElementById('summarySection').style.display = 'none';
+}
+
+// Generate Work Summary
+function generateWorkSummary() {
+    const summary = [];
+    
+
+    
+    // Process each category
+    Object.entries(workCodesConfig.categories).forEach(([categoryKey, categoryConfig]) => {
+        const sectionId = categoryKey.toLowerCase();
+        const toggle = document.getElementById(sectionId + 'Toggle');
+        const isMonthlyWork = categoryKey === 'MONTHLY_PACKAGE' || categoryKey === 'STATE_PACKAGE';
+        
+        // Check if category is active
+        let shouldProcessCategory = false;
+        
+        if (toggle && toggle.checked) {
+            shouldProcessCategory = true;
+        } else if (!toggle && (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection')) {
+            shouldProcessCategory = categoryConfig.codes.some(code => {
+                const checkbox = document.getElementById(sectionId + '_' + code.code);
+                return checkbox && checkbox.checked;
+            });
+        }
+        
+        if (shouldProcessCategory) {
+            if (isMonthlyWork) {
+                processMonthlySummary(categoryKey, categoryConfig, sectionId, summary);
+            } else {
+                processRegularSummary(categoryKey, categoryConfig, sectionId, summary);
+            }
+        }
+    });
+    
+    return summary;
+}
+
+// Process Regular Categories Summary (Daily Work)
+function processRegularSummary(categoryKey, categoryConfig, sectionId, summary) {
+    if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item') {
+        // For DELIVERY and BCG
+        const serviceName = categoryConfig.name;
+        const datesContainer = document.getElementById(sectionId + 'Dates');
+        const dates = [];
+        let totalCount = 0;
+        
+        if (datesContainer) {
+            const dateEntries = datesContainer.querySelectorAll('.date-entry');
+            dateEntries.forEach(entry => {
+                const dateInput = entry.querySelector('input[type="date"]');
+                const countInput = entry.querySelector('input[type="number"]');
+                
+                if (dateInput && dateInput.value) {
+                    const count = parseInt(countInput.value) || 1;
+                    const formattedDate = formatSummaryDate(dateInput.value);
+                    
+                    // Add date multiple times based on count
+                    for (let i = 0; i < count; i++) {
+                        dates.push(formattedDate);
+                        totalCount++;
+                    }
+                }
+            });
+        }
+        
+        if (dates.length > 0) {
+            summary.push(`${serviceName} total ${totalCount} [${dates.join(', ')}]`);
+        }
+        
+    } else if (categoryConfig.type === 'amount_based') {
+        // For TIKAKARAN (amount-based services)
+        const datesContainer = document.getElementById(sectionId + 'Dates');
+        
+        if (datesContainer) {
+            const dateEntries = datesContainer.querySelectorAll('.date-entry');
+            const servicesSummary = {};
+            
+            dateEntries.forEach(entry => {
+                const dateInput = entry.querySelector('input[type="date"]');
+                
+                if (dateInput && dateInput.value) {
+                    const formattedDate = formatSummaryDate(dateInput.value);
+                    
+                    categoryConfig.codes.forEach(code => {
+                        const checkbox = document.getElementById(sectionId + '_' + code.code);
+                        if (checkbox && checkbox.checked) {
+                            const countInput = document.getElementById('count_' + code.code);
+                            const count = parseInt(countInput.value) || 1;
+                            const amount = code.amount || 0;
+                            
+                            const serviceKey = `${amount}`;
+                            if (!servicesSummary[serviceKey]) {
+                                servicesSummary[serviceKey] = { count: 0, dates: [] };
+                            }
+                            servicesSummary[serviceKey].count += count;
+                            servicesSummary[serviceKey].dates.push(formattedDate);
+                        }
+                    });
+                }
+            });
+            
+            // Add Tikakaran services to summary
+            Object.entries(servicesSummary).forEach(([serviceKey, data]) => {
+                summary.push(`Tikakaran ${serviceKey} ${data.count} [${[...new Set(data.dates)].join(', ')}]`);
+            });
+        }
+        
+    } else if (categoryConfig.type === 'individual_selection') {
+        // Check if this is monthly work
+        const isMonthlyWork = categoryKey === 'MONTHLY_PACKAGE' || categoryKey === 'STATE_PACKAGE';
+        
+        if (!isMonthlyWork) {
+        // For OTHER services (individual selection, non-monthly)
+        categoryConfig.codes.forEach(code => {
+            const checkbox = document.getElementById(sectionId + '_' + code.code);
+            if (checkbox && checkbox.checked) {
+                const serviceDates = document.getElementById('dates_' + code.code);
+                const dates = [];
+                let totalCount = 0;
+                
+                if (serviceDates) {
+                    const dateEntries = serviceDates.querySelectorAll('.date-entry');
+                    dateEntries.forEach(entry => {
+                        const dateInput = entry.querySelector('input[type="date"]');
+                        const countInput = entry.querySelector('input[type="number"]');
+                        
+                        if (dateInput && dateInput.value) {
+                            const count = parseInt(countInput.value) || 1;
+                            const formattedDate = formatSummaryDate(dateInput.value);
+                            
+                            // Add date multiple times based on count
+                            for (let i = 0; i < count; i++) {
+                                dates.push(formattedDate);
+                                totalCount++;
+                            }
+                        }
+                    });
+                }
+                
+                if (dates.length > 0) {
+                    summary.push(`${code.description} - ${totalCount} [${dates.join(', ')}]`);
+                }
+            }
+        });
+        }
+    }
+}
+
+// Process Monthly Categories Summary
+function processMonthlySummary(categoryKey, categoryConfig, sectionId, summary) {
+    const categoryName = categoryConfig.name;
+    const selectedServices = [];
+    
+    categoryConfig.codes.forEach(code => {
+        const checkbox = document.getElementById(sectionId + '_' + code.code);
+        if (checkbox && checkbox.checked) {
+            let serviceInfo = code.code;
+            
+            // Add count information for specific codes
+            if (['PC1.8', 'PC1.9', 'PC1.10'].includes(code.code)) {
+                const countInput = document.getElementById('monthly_count_' + code.code);
+                if (countInput) {
+                    const count = parseInt(countInput.value) || 1;
+                    serviceInfo += ` (Count: ${count})`;
+                }
+            }
+            
+            selectedServices.push(serviceInfo);
+        }
+    });
+    
+    if (selectedServices.length > 0) {
+        summary.push(`\n📦 ${categoryName}:`);
+        selectedServices.forEach(service => {
+            summary.push(`  • ${service}`);
+        });
+    }
+}
+
+// Format date for summary display
+function formatSummaryDate(dateStr) {
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[date.getMonth()];
+    
+    return `${day} ${month}`;
 }
 
 function reloadConfiguration() {
-    document.getElementById('dynamicSections').innerHTML = '<div class="loading-message"><h3>⏳ Reloading configuration...</h3></div>';
+    // Show loading message in both tabs
+    const loadingMessage = '<div class="loading-message"><h3>⏳ Reloading configuration...</h3></div>';
+    
+    const dailyWorkContainer = document.getElementById('dailyWorkSections');
+    const monthlyWorkContainer = document.getElementById('monthlyWorkSections');
+    
+    if (dailyWorkContainer) {
+        dailyWorkContainer.innerHTML = loadingMessage;
+    }
+    if (monthlyWorkContainer) {
+        monthlyWorkContainer.innerHTML = loadingMessage;
+    }
+    
     workCodesConfig = null;
     loadWorkCodesConfiguration();
 }
@@ -1339,6 +2117,41 @@ function toggleItemSelection(checkboxId) {
     if (checkbox) {
         checkbox.checked = !checkbox.checked;
         handleCheckboxChange(checkbox, extractServiceCode(checkboxId));
+    }
+}
+
+// Toggle category selection directly on row click (for Delivery and BCG)
+function toggleCategorySelectionDirect(sectionId, categoryKey) {
+    const checkbox = document.getElementById(sectionId + '_category');
+    const itemRow = document.querySelector(`[onclick="toggleCategorySelectionDirect('${sectionId}', '${categoryKey}')"]`);
+    const titleElement = itemRow ? itemRow.querySelector('.section-title') : null;
+    
+    if (checkbox && itemRow && titleElement) {
+        checkbox.checked = !checkbox.checked;
+        
+        // Update visual state - same as individual tasks
+        if (checkbox.checked) {
+            itemRow.classList.add('item-selected');
+            titleElement.classList.add('category-selected');
+        } else {
+            itemRow.classList.remove('item-selected');
+            titleElement.classList.remove('category-selected');
+        }
+        
+        // Handle the checkbox change logic
+        handleCategoryCheckboxChange(checkbox, categoryKey);
+    }
+}
+
+// Toggle category selection (for clickable category items like Delivery and BCG)
+function toggleCategorySelection(sectionId) {
+    const checkbox = document.getElementById(sectionId + '_category');
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        
+        // Find the category key from the section
+        const categoryKey = sectionId.toUpperCase();
+        handleCategoryCheckboxChange(checkbox, categoryKey);
     }
 }
 
@@ -1381,6 +2194,48 @@ function handleCheckboxChange(checkbox, serviceCode = null) {
             }
         }
     }
+    
+    // Update all date button styling based on current selections
+    updateDateButtonStyling();
+}
+
+// Handle category checkbox changes for fixed_bundle and single_item types
+function handleCategoryCheckboxChange(checkbox, categoryKey) {
+    const section = checkbox.closest('.section');
+    const itemRow = checkbox.closest('.item-row');
+    const titleElement = itemRow ? itemRow.querySelector('.section-title') : null;
+    const dateButton = section ? section.querySelector('.date-select-btn') : null;
+    
+    if (checkbox.checked) {
+        // Category selected - highlight row and enable date button (same as individual tasks)
+        if (itemRow) {
+            itemRow.classList.add('item-selected');
+        }
+        if (titleElement) {
+            titleElement.classList.add('category-selected');
+        }
+        if (dateButton) {
+            dateButton.classList.remove('btn-disabled');
+            dateButton.classList.add('btn-enabled');
+            dateButton.disabled = false;
+        }
+    } else {
+        // Category deselected - remove highlight and disable date button
+        if (itemRow) {
+            itemRow.classList.remove('item-selected');
+        }
+        if (titleElement) {
+            titleElement.classList.remove('category-selected');
+        }
+        if (dateButton) {
+            dateButton.classList.remove('btn-enabled');
+            dateButton.classList.add('btn-disabled');
+            dateButton.disabled = false; // Keep clickable for user feedback
+        }
+    }
+    
+    // Update all date button styling based on current selections
+    updateDateButtonStyling();
 }
 
 // Extract service code from checkbox ID
@@ -1423,21 +2278,95 @@ function adjustCount(countInputId, delta) {
     }
 }
 
+// Adjust monthly count with specific validation
+function adjustMonthlyCount(countInputId, delta) {
+    const countInput = document.getElementById(countInputId);
+    if (countInput) {
+        let currentValue = parseInt(countInput.value) || 1;
+        let newValue = currentValue + delta;
+        
+        // Apply specific constraints based on the input
+        const min = parseInt(countInput.min) || 1;
+        const max = parseInt(countInput.max) || 999;
+        
+        if (newValue < min) {
+            newValue = min;
+        }
+        if (newValue > max) {
+            newValue = max;
+        }
+        
+        countInput.value = newValue;
+        
+        console.log(`📊 Monthly count adjusted for ${countInputId}: ${currentValue} → ${newValue} (range: ${min}-${max})`);
+    }
+}
+
+// Validate monthly count input
+function validateMonthlyCount(input, min, max) {
+    let value = parseInt(input.value);
+    
+    if (isNaN(value) || value < min) {
+        input.value = min;
+        alert(`⚠️ Minimum value is ${min}`);
+    } else if (value > max) {
+        input.value = max;
+        alert(`⚠️ Maximum value is ${max}`);
+    }
+    
+    console.log(`✅ Monthly count validated: ${input.value} (range: ${min}-${max})`);
+}
+
 // Update date button styling based on enablement
 function updateDateButtonStyling() {
     document.querySelectorAll('.date-select-btn').forEach(button => {
-        // Check if any related checkboxes are selected
         const section = button.closest('.section');
-        const hasSelectedItems = section ? section.querySelectorAll('.item-checkbox:checked').length > 0 : false;
-        const categoryToggle = section ? section.querySelector('.section-toggle') : null;
-        const isCategorySelected = categoryToggle ? categoryToggle.checked : false;
+        const serviceItem = button.closest('.service-item');
         
-        if (hasSelectedItems || isCategorySelected) {
+        let shouldEnable = false;
+        
+        if (serviceItem) {
+            // Individual service button (Others category) - only check its own checkbox
+            const serviceCheckbox = serviceItem.querySelector('.item-checkbox');
+            shouldEnable = serviceCheckbox && serviceCheckbox.checked;
+        } else {
+            // Category-level button (Delivery, BCG, etc.) - check category selection
+            const categoryToggle = section ? section.querySelector('.section-toggle') : null;
+            const categoryCheckbox = section ? section.querySelector('.category-checkbox') : null;
+            const isCategorySelected = (categoryToggle && categoryToggle.checked) || (categoryCheckbox && categoryCheckbox.checked);
+            
+            // For category buttons, also check if any items in category are selected
+            const hasSelectedItems = section ? section.querySelectorAll('.item-checkbox:checked').length > 0 : false;
+            
+            shouldEnable = isCategorySelected || hasSelectedItems;
+        }
+        
+        if (shouldEnable) {
             button.classList.remove('btn-disabled');
             button.classList.add('btn-enabled');
         } else {
             button.classList.add('btn-disabled');
             button.classList.remove('btn-enabled');
+        }
+    });
+}
+
+// Update all date button texts across all categories
+function updateAllDateButtonTexts() {
+    if (!workCodesConfig) return;
+    
+    Object.entries(workCodesConfig.categories).forEach(([categoryKey, categoryConfig]) => {
+        // Update category-level button text (for fixed_bundle, single_item, amount_based)
+        if (categoryConfig.type !== 'individual_selection') {
+            updateDateButtonText(categoryKey);
+        } else {
+            // Update individual service button texts (for individual_selection)
+            categoryConfig.codes.forEach(code => {
+                const isMonthlyWork = categoryKey === 'MONTHLY_PACKAGE' || categoryKey === 'STATE_PACKAGE';
+                if (!isMonthlyWork) {
+                    updateDateButtonText(categoryKey, code.code);
+                }
+            });
         }
     });
 }
@@ -1458,9 +2387,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     loadWorkCodesConfiguration();
     
-    // Set up periodic date button styling updates
+    // Set up periodic date button styling and text updates
     setTimeout(() => {
         updateDateButtonStyling();
+        updateAllDateButtonTexts();
     }, 1000);
 });
  
