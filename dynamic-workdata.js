@@ -1917,9 +1917,17 @@ function generateWorkSummary() {
         // Check if category is active
         let shouldProcessCategory = false;
         
+        // Check for old-style section toggle (no longer used but keeping for backwards compatibility)
         if (toggle && toggle.checked) {
             shouldProcessCategory = true;
-        } else if (!toggle && (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection')) {
+        }
+        // Check for new-style category checkbox (for fixed_bundle and single_item)
+        else if (categoryConfig.type === 'fixed_bundle' || categoryConfig.type === 'single_item') {
+            const categoryCheckbox = document.getElementById(sectionId + '_category');
+            shouldProcessCategory = categoryCheckbox && categoryCheckbox.checked;
+        }
+        // Check for individual service selections (amount_based, individual_selection)
+        else if (categoryConfig.type === 'amount_based' || categoryConfig.type === 'individual_selection') {
             shouldProcessCategory = categoryConfig.codes.some(code => {
                 const checkbox = document.getElementById(sectionId + '_' + code.code);
                 return checkbox && checkbox.checked;
