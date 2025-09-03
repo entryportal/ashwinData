@@ -1505,6 +1505,12 @@ function displayResults(data) {
     const workEntries = generateWorkEntriesFromJSON(data);
     document.getElementById('workEntriesOutput').textContent = workEntries.join('\n');
     
+    // Show download text button when there's content
+    const downloadTextBtn = document.getElementById('downloadTextBtn');
+    if (downloadTextBtn && workEntries.length > 0) {
+        downloadTextBtn.style.display = 'inline-block';
+    }
+    
     // Generate and display table (only for daily work, exclude monthly)
     generateWorkEntriesTable(data.workData, grandTotal);
     
@@ -1533,6 +1539,11 @@ function generateWorkEntriesTable(workData, grandTotal) {
         // Show empty state
         tableBody.innerHTML = '<tr><td colspan="7" class="empty-table-message">No work entries generated yet. Please select services and dates, then click "Generate Work Entries".</td></tr>';
         tableFooter.style.display = 'none';
+        // Hide download buttons when no data
+        const downloadBtn = document.getElementById('downloadTableBtn');
+        if (downloadBtn) downloadBtn.style.display = 'none';
+        const downloadTextBtn = document.getElementById('downloadTextBtn');
+        if (downloadTextBtn) downloadTextBtn.style.display = 'none';
         return;
     }
     
@@ -1575,6 +1586,10 @@ function generateWorkEntriesTable(workData, grandTotal) {
     // Show footer with grand total (without ₹ symbol)
     grandTotalElement.textContent = `${grandTotal}`;
     tableFooter.style.display = 'table-footer-group';
+    
+    // Show download button when data is available
+    const downloadBtn = document.getElementById('downloadTableBtn');
+    if (downloadBtn) downloadBtn.style.display = 'inline-block';
     
     console.log(`📊 Generated table with ${workData.length} entries, Grand Total: ${grandTotal}`);
 }
@@ -1814,6 +1829,12 @@ function clearForm() {
     
     document.getElementById('outputSection').style.display = 'none';
     
+    // Clear work entries output text
+    const workEntriesOutput = document.getElementById('workEntriesOutput');
+    if (workEntriesOutput) {
+        workEntriesOutput.textContent = '';
+    }
+    
     // Hide summary section
     document.getElementById('summarySection').style.display = 'none';
     
@@ -1832,6 +1853,12 @@ function clearForm() {
     if (tableFooter) {
         tableFooter.style.display = 'none';
     }
+    
+    // Hide download buttons when table is cleared
+    const downloadBtn = document.getElementById('downloadTableBtn');
+    if (downloadBtn) downloadBtn.style.display = 'none';
+    const downloadTextBtn = document.getElementById('downloadTextBtn');
+    if (downloadTextBtn) downloadTextBtn.style.display = 'none';
 
     // Clear monthly work table
     const monthlyTableSection = document.getElementById('monthlyWorkTableSection');
@@ -1900,6 +1927,351 @@ function showSummary() {
 // Hide Summary Function
 function hideSummary() {
     document.getElementById('summarySection').style.display = 'none';
+}
+
+// Download Generated Work Entries Text as .txt file
+function downloadWorkEntriesText() {
+    const workEntriesOutput = document.getElementById('workEntriesOutput');
+    const downloadTextBtn = document.getElementById('downloadTextBtn');
+    
+    if (!workEntriesOutput || !workEntriesOutput.textContent.trim()) {
+        alert('❌ No work entries text to download. Please generate work entries first.');
+        return;
+    }
+    
+    try {
+        // Change button text to show processing
+        const originalText = downloadTextBtn.textContent;
+        downloadTextBtn.textContent = '⏳ Saving...';
+        downloadTextBtn.disabled = true;
+        
+        console.log('📄 Starting work entries text download...');
+        
+        // Get the text content
+        const textContent = workEntriesOutput.textContent.trim();
+        
+        // Create blob with text content
+        const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+        
+        // Create download link
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        
+        // Generate filename with current date
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS format
+        link.download = `Work_Entries_${dateStr}_${timeStr}.txt`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up
+        URL.revokeObjectURL(url);
+        
+        console.log('💾 Text file download initiated successfully');
+        
+        // Show success message
+        alert('✅ Work entries text file downloaded successfully!\n📄 Contains all generated work entries in text format');
+        
+    } catch (error) {
+        console.error('❌ Error downloading text file:', error);
+        alert('❌ Error generating text file. Please try again.');
+    } finally {
+        // Restore button
+        downloadTextBtn.textContent = originalText;
+        downloadTextBtn.disabled = false;
+    }
+}
+
+// Download Only Table Sections as Image
+async function downloadTableAsImage() {
+    const downloadBtn = document.getElementById('downloadTableBtn');
+    
+    // Find the specific sections we want to capture
+    const workEntriesTableContainer = document.getElementById('workEntriesTableContainer');
+    const monthlyWorkSection = document.getElementById('monthlyWorkTableSection');
+    
+    if (!workEntriesTableContainer) {
+        alert('❌ Work entries table not found for download');
+        return;
+    }
+    
+    // Find the parent section of the work entries table
+    const workEntriesSection = workEntriesTableContainer.closest('.output-section');
+    
+    // Check if work entries section has data
+    const tableBody = document.getElementById('workEntriesTableBody');
+    if (!tableBody || tableBody.children.length === 0 || 
+        tableBody.innerHTML.includes('empty-table-message')) {
+        alert('❌ No table data to capture. Please generate work entries first.');
+        return;
+    }
+    
+    // Store original button state
+    const originalText = downloadBtn.textContent;
+    
+    // Helper function to restore button
+    const restoreButton = () => {
+        downloadBtn.textContent = originalText;
+        downloadBtn.disabled = false;
+    };
+    
+    // Helper function to restore table styles
+    const restoreTableStyles = () => {
+        const tableContainer = document.getElementById('workEntriesTableContainer');
+        if (tableContainer && window.originalTableStyles) {
+            tableContainer.style.maxHeight = window.originalTableStyles.maxHeight || '';
+            tableContainer.style.height = window.originalTableStyles.height || '';
+            tableContainer.style.overflowY = window.originalTableStyles.overflowY || '';
+            tableContainer.style.overflowX = window.originalTableStyles.overflowX || '';
+            console.log('📏 Table container styles restored');
+        }
+    };
+    
+    // Helper function to clean up temporary container
+    const cleanupTempContainer = (container) => {
+        if (container && container.parentNode) {
+            container.parentNode.removeChild(container);
+            console.log('🧹 Temporary container cleaned up');
+        }
+    };
+    
+    try {
+        // Change button text to show processing
+        downloadBtn.textContent = '⏳ Capturing...';
+        downloadBtn.disabled = true;
+        
+        console.log('📸 Starting table sections image capture...');
+        
+        // Store original scroll position to restore later
+        const originalScrollTop = window.scrollY;
+        const originalScrollLeft = window.scrollX;
+        
+        // Temporarily scroll to top to ensure full capture
+        window.scrollTo(0, 0);
+        
+        // Small delay to ensure DOM is stable
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Create temporary container for capture
+        const tempContainer = document.createElement('div');
+        window.tempCaptureContainer = tempContainer; // Store globally for cleanup
+        tempContainer.style.cssText = `
+            background: white;
+            padding: 20px;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+        
+        // Temporarily expand table container to show all content
+        const tableContainer = document.getElementById('workEntriesTableContainer');
+        let originalTableStyles = {};
+        
+        if (tableContainer) {
+            // Store original styles
+            originalTableStyles = {
+                maxHeight: tableContainer.style.maxHeight,
+                height: tableContainer.style.height,
+                overflowY: tableContainer.style.overflowY,
+                overflowX: tableContainer.style.overflowX
+            };
+            
+            // Store globally for cleanup functions
+            window.originalTableStyles = originalTableStyles;
+            
+            // Temporarily remove height restrictions and overflow
+            tableContainer.style.maxHeight = 'none';
+            tableContainer.style.height = 'auto';
+            tableContainer.style.overflowY = 'visible';
+            tableContainer.style.overflowX = 'visible';
+            
+            console.log('📏 Table container expanded for full capture');
+        }
+        
+        // Clone and add work entries section
+        const workEntriesClone = workEntriesSection.cloneNode(true);
+        tempContainer.appendChild(workEntriesClone);
+        
+        // Add monthly work section if it exists and is visible
+        if (monthlyWorkSection && monthlyWorkSection.style.display !== 'none' && monthlyWorkSection.offsetHeight > 0) {
+            const monthlyClone = monthlyWorkSection.cloneNode(true);
+            monthlyClone.style.display = 'block'; // Ensure it's visible in the clone
+            tempContainer.appendChild(monthlyClone);
+            console.log('📏 Monthly work section included');
+        }
+        
+        // Append temporary container to body (hidden)
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '0';
+        document.body.appendChild(tempContainer);
+        
+        // Small delay after DOM changes
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Get the full dimensions of the temp container
+        const fullWidth = Math.max(tempContainer.scrollWidth, tempContainer.offsetWidth, 800);
+        const fullHeight = Math.max(tempContainer.scrollHeight, tempContainer.offsetHeight, 600);
+        
+        console.log(`📏 Capturing dimensions: ${fullWidth}x${fullHeight}`);
+        
+        // Capture the temporary container as canvas
+        const canvas = await html2canvas(tempContainer, {
+            backgroundColor: '#ffffff',
+            scale: 1.2,
+            logging: true,
+            useCORS: true,
+            allowTaint: true,
+            foreignObjectRendering: false,
+            width: fullWidth,
+            height: fullHeight,
+            scrollX: 0,
+            scrollY: 0,
+            x: 0,
+            y: 0,
+            removeContainer: false
+        });
+        
+        // Clean up temporary container
+        cleanupTempContainer(tempContainer);
+        window.tempCaptureContainer = null;
+        
+        // Restore original scroll position
+        window.scrollTo(originalScrollLeft, originalScrollTop);
+        
+        // Restore table container styles
+        if (tableContainer && originalTableStyles) {
+            tableContainer.style.maxHeight = originalTableStyles.maxHeight || '';
+            tableContainer.style.height = originalTableStyles.height || '';
+            tableContainer.style.overflowY = originalTableStyles.overflowY || '';
+            tableContainer.style.overflowX = originalTableStyles.overflowX || '';
+            console.log('📏 Table container styles restored');
+        }
+        
+        console.log('🎨 Canvas generated successfully');
+        console.log(`🎨 Canvas dimensions: ${canvas.width}x${canvas.height}`);
+        
+        // Check if canvas has content
+        if (canvas.width === 0 || canvas.height === 0) {
+            throw new Error('Canvas has zero dimensions');
+        }
+        
+        // Convert canvas to blob
+        canvas.toBlob((blob) => {
+            try {
+                if (!blob) {
+                    console.error('❌ Failed to generate blob from canvas');
+                    alert('❌ Failed to generate image blob. Please try again.');
+                    restoreButton();
+                    restoreTableStyles();
+                    cleanupTempContainer(window.tempCaptureContainer);
+                    return;
+                }
+                
+                console.log(`💾 Blob size: ${blob.size} bytes`);
+                
+                // Create download link
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.href = url;
+                
+                // Generate filename with current date
+                const now = new Date();
+                const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS format
+                link.download = `Work_Tables_${dateStr}_${timeStr}.png`;
+                
+                // Trigger download
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Clean up
+                URL.revokeObjectURL(url);
+                
+                console.log('💾 Download initiated successfully');
+                
+                // Show success message
+                alert('✅ Work tables image downloaded successfully!\n📊 Includes Work Entries Table and Monthly Work Tables only');
+                
+                // Restore button after successful download
+                restoreButton();
+                restoreTableStyles();
+                
+            } catch (blobError) {
+                console.error('❌ Error in blob processing:', blobError);
+                alert('❌ Error processing image. Please try again.');
+                restoreButton();
+                restoreTableStyles();
+                cleanupTempContainer(window.tempCaptureContainer);
+            }
+            
+        }, 'image/png', 0.92);
+        
+    } catch (error) {
+        console.error('❌ Error downloading table sections image:', error);
+        console.log('🔄 Attempting fallback capture method...');
+        
+        // Clean up temporary container if it exists
+        cleanupTempContainer(window.tempCaptureContainer);
+        
+        // Try fallback method - capture just the table container
+        try {
+            const tableContainer = document.getElementById('workEntriesTableContainer');
+            if (tableContainer && tableContainer.offsetHeight > 0) {
+                const fallbackCanvas = await html2canvas(tableContainer, {
+                    backgroundColor: '#ffffff',
+                    scale: 1.5,
+                    logging: true,
+                    useCORS: true,
+                    allowTaint: true
+                });
+                
+                console.log('🎨 Fallback canvas generated successfully');
+                
+                fallbackCanvas.toBlob((blob) => {
+                    if (blob) {
+                        const link = document.createElement('a');
+                        const url = URL.createObjectURL(blob);
+                        link.href = url;
+                        
+                        const now = new Date();
+                        const dateStr = now.toISOString().split('T')[0];
+                        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+                        link.download = `Work_Table_${dateStr}_${timeStr}.png`;
+                        
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                        
+                        alert('✅ Table image downloaded (fallback mode)!\n📊 Contains work entries table');
+                        restoreButton();
+                        restoreTableStyles();
+                    } else {
+                        alert(`❌ Error generating image: ${error.message}\nPlease try again or check browser console.`);
+                        restoreButton();
+                        restoreTableStyles();
+                    }
+                }, 'image/png', 0.92);
+            } else {
+                alert(`❌ Error generating image: ${error.message}\nPlease try again or check browser console.`);
+                restoreButton();
+                restoreTableStyles();
+            }
+        } catch (fallbackError) {
+            console.error('❌ Fallback capture also failed:', fallbackError);
+            alert(`❌ Error generating image: ${error.message}\nPlease try again or check browser console.`);
+            restoreButton();
+            restoreTableStyles();
+        }
+    }
 }
 
 // Generate Work Summary

@@ -1101,6 +1101,32 @@
             animation: none; /* Stop pulse on hover */
         }
 
+        /* Download Button Styling */
+        .download-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .download-btn:hover {
+            background: linear-gradient(135deg, #20c997 0%, #28a745 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+            color: white;
+        }
+
+        .download-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+        }
+
         /* Summary Section Styling */
         .summary-content {
             background-color: #f8f9fa;
@@ -1245,7 +1271,12 @@
         </div>
         
         <div class="output-section">
-            <h4>📊 Work Entries Table View:</h4>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4 style="margin: 0;">📊 Work Entries Table View:</h4>
+                <button id="downloadTableBtn" class="download-btn" onclick="downloadTableAsImage()" style="display: none;">
+                    📥 Download Tables
+                </button>
+            </div>
             <div id="workEntriesTableContainer">
                 <table id="workEntriesTable" class="work-entries-table">
                     <thead>
@@ -1314,13 +1345,22 @@
         </div>
         
         <div class="output-section">
-            <h4>📝 Generated Work Entries (for AshwinAuto.java):</h4>
-            <p><strong>Format:</strong> CODE COUNT SERVICE_DATE REGISTER_DATE</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div>
+                    <h4 style="margin: 0;">📝 Generated Work Entries (for AshwinAuto.java):</h4>
+                    <p style="margin: 5px 0;"><strong>Format:</strong> CODE COUNT SERVICE_DATE REGISTER_DATE</p>
+                </div>
+                <button id="downloadTextBtn" class="download-btn" onclick="downloadWorkEntriesText()" style="display: none;">
+                    📄 Download Text
+                </button>
+            </div>
             <div id="workEntriesOutput" class="json-output"></div>
         </div>
     </div>
 
     <!-- External JavaScript for dynamic configuration-driven system -->
+    <!-- html2canvas library for image download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="dynamic-workdata.js"></script>
 </body>
 </html>
